@@ -74,7 +74,7 @@ const ConfiguracoesPerfil = () => {
     return (
         // Wrapper: No Mobile tiramos o 'overflow-hidden' para permitir o scroll natural da página caso prefira, 
         // mas mantemos a estrutura de transição.
-        <div className="min-h-screen bg-white dark:bg-[#020617] flex flex-col lg:flex-row font-sans transition-colors duration-500">
+        <div className="min-h-screen bg-white dark:bg-[#020617] flex flex-col lg:flex-row font-sans transition-colors duration-500 modern-scroll-v">
 
             {/* --- BARRA DE NAVEGAÇÃO MOBILE / DESKTOP --- */}
             {/* Usamos uma div de controle para os botões fixos no mobile para não poluir o conteúdo */}
@@ -189,7 +189,7 @@ const ConfiguracoesPerfil = () => {
                                 <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                                     <MapPin size={18} />
                                 </div>
-                                Logística e Entrega
+                               Endereço
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

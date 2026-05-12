@@ -828,7 +828,7 @@ const DashboardAdmin = () => {
         );
     }
     return (
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden relative">
+        <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden relative">
 
             {/* --- BOTÃO HAMBÚRGUER (Aparece apenas < LG) --- */}
             <button
@@ -905,7 +905,7 @@ const DashboardAdmin = () => {
             </aside>
 
             {/* --- CONTEÚDO PRINCIPAL --- */}
-            <main className="flex-1 h-screen overflow-y-auto bg-slate-50 dark:bg-[#020617] p-6 lg:p-12 pt-28 lg:pt-12 modern-scroll-v h-[600px] transition-colors duration-300">
+            <main className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-[#020617] p-6 lg:p-12 pt-28 lg:pt-12 modern-scroll-v transition-colors duration-300">
 
                 <header className="flex flex-col gap-6 mb-8 lg:mb-12">
                     <div>

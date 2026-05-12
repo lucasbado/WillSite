@@ -45,6 +45,7 @@ const DashboardCliente = () => {
     useEffect(() => { fetchHistorico(); fetchModelos(); }, []);
 
     const STATUS_WEIGHTS = {
+        'pendente': 1,
         'aguardando agendamento': 1,
         'recebido': 1,
         'agendado': 2,
@@ -54,7 +55,8 @@ const DashboardCliente = () => {
         'liberado': 3,
         'entregue': 4,      // Verifique se é este o nome no banco
         'finalizado': 4,    // Verifique se é este
-        'Concluído': 4,     // Ou este
+        'concluído': 4,
+        'Concluído': 4,
         'concluido': 4
     };
 
@@ -156,7 +158,7 @@ const DashboardCliente = () => {
 
     return (
         // Fundo da Página: bg-slate-50 | Dark: bg-[#020617]
-        <div className="min-h-screen bg-slate-50 dark:bg-[#020617] font-sans pb-20 transition-colors duration-500">
+        <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-[#020617] font-sans pb-20 transition-colors duration-500 modern-scroll-v">
 
             {/* --- NAVBAR SUPERIOR --- */}
             <nav className="bg-white/90 dark:bg-[#020617]/90 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 sticky top-0 z-50 w-full shadow-sm">
@@ -683,15 +685,7 @@ const DashboardCliente = () => {
 
             {/* --- DETALHES DA OS (ESTEIRA DE STATUS TÉCNICA ATUALIZADA) --- */}
             {verDetalhesOS && (
-                (() => {
-                    const statusAtual = verDetalhesOS?.status?.toLowerCase() || '';
-
-                    const isRecebido = true; // O primeiro sempre está aceso se a OS existe
-                    const isEmReparo = ['em manutenção', 'em manutencao', 'pronto para retirada', 'entregue'].includes(statusAtual);
-                    const isPronto = ['pronto para retirada', 'entregue'].includes(statusAtual);
-                    const isEntregue = statusAtual === 'entregue';
-
-                    return (
+                (
                         <div className="fixed inset-0 bg-slate-900/80 dark:bg-slate-950/90 backdrop-blur-xl flex items-end md:items-center justify-center p-0 md:p-4 z-[100] animate-in fade-in duration-300">
 
                             <div className="bg-white dark:bg-slate-900 rounded-t-[3rem] md:rounded-[4rem] max-w-xl w-full p-8 md:p-12 shadow-3xl relative animate-in slide-in-from-bottom-6 md:zoom-in duration-300 max-h-[92vh] overflow-y-auto border border-transparent dark:border-slate-800 transition-all custom-scrollbar">
@@ -724,8 +718,8 @@ const DashboardCliente = () => {
                                 <div className="mb-12 relative px-2">
                                     <div className="flex justify-between items-start w-full relative z-10">
 
-                                        {/* Status 1: Recebido */}
-                                        <div className="flex flex-col items-center gap-3 flex-1">
+                                        {/* Status 1: Recebido (Tamanho Fixo) */}
+                                        <div className="flex flex-col items-center gap-3 shrink-0">
                                             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 
         ${isRecebido ? 'bg-blue-600 border-blue-200 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-300'}`}>
                                                 <ClipboardList size={20} strokeWidth={3} />
@@ -733,43 +727,44 @@ const DashboardCliente = () => {
                                             <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isRecebido ? 'text-blue-600' : 'text-slate-400'}`}>Recebido</span>
                                         </div>
 
-                                        {/* Linha 1 */}
-                                        <div className={`h-1.5 flex-1 mt-5 md:mt-6 -mx-2 transition-colors duration-700 
+                                        {/* Linha 1 (Flexível) */}
+                                        <div className={`h-1.5 flex-1 mt-5 md:mt-6 transition-colors duration-700 
   ${currentWeight >= 2 ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`}>
                                         </div>
-                                        {/* Status 2: Em Reparo */}
-                                        <div className="flex flex-col items-center gap-3 flex-1">
+
+                                        {/* Status 2: Reparo (Tamanho Fixo) */}
+                                        <div className="flex flex-col items-center gap-3 shrink-0">
                                             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 
         ${isEmReparo ? 'bg-blue-600 border-blue-200 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-300'}
-        ${statusAtual === 'em manutenção' || statusAtual === 'em manutencao' ? 'animate-pulse' : ''}`}>
+        ${currentStatus === 'em manutenção' || currentStatus === 'em manutencao' ? 'animate-pulse' : ''}`}>
                                                 <Cpu size={20} strokeWidth={3} />
                                             </div>
                                             <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isEmReparo ? 'text-blue-600' : 'text-slate-400'}`}>Reparo</span>
                                         </div>
 
-                                        {/* Linha 2 */}
-                                        <div className={`h-1.5 flex-1 mt-5 md:mt-6 -mx-2 transition-colors duration-700 ${isPronto ? 'bg-emerald-500' : 'bg-slate-100 dark:bg-slate-800'}`}></div>
+                                        {/* Linha 2 (Flexível) */}
+                                        <div className={`h-1.5 flex-1 mt-5 md:mt-6 transition-colors duration-700 ${isPronto ? 'bg-emerald-500' : 'bg-slate-100 dark:bg-slate-800'}`}></div>
 
-                                        {/* Status 3: Pronto */}
-                                        <div className="flex flex-col items-center gap-3 flex-1">
+                                        {/* Status 3: Pronto (Tamanho Fixo) */}
+                                        <div className="flex flex-col items-center gap-3 shrink-0">
                                             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 
                 ${isPronto ? 'bg-emerald-500 border-emerald-200 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-300'}
-                ${statusAtual === 'pronto para retirada' ? 'animate-bounce' : ''}`}>
+                ${currentStatus === 'pronto para retirada' ? 'animate-bounce' : ''}`}>
                                                 <Package size={20} strokeWidth={3} className={isPronto ? 'text-white' : 'text-slate-300'} />
                                             </div>
                                             <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isPronto ? 'text-emerald-600' : 'text-slate-400'}`}>Liberado</span>
                                         </div>
 
-                                        {/* Linha 3 */}
-                                        <div className={`h-1.5 flex-1 mt-5 md:mt-6 -mx-2 transition-colors duration-700 ${isEntregue ? 'bg-slate-900' : 'bg-slate-100 dark:bg-slate-800'}`}></div>
+                                        {/* Linha 3 (Flexível) */}
+                                        <div className={`h-1.5 flex-1 mt-5 md:mt-6 transition-colors duration-700 ${isEntregue ? 'bg-emerald-500' : 'bg-slate-100 dark:bg-slate-800'}`}></div>
 
-                                        {/* Status 4: Finalizado */}
-                                        <div className="flex flex-col items-center gap-3 flex-1">
+                                        {/* Status 4: Finalizado (Tamanho Fixo) */}
+                                        <div className="flex flex-col items-center gap-3 shrink-0">
                                             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 
-                ${isEntregue ? 'bg-slate-900 text-white border-slate-200' : 'bg-white border-slate-100 text-slate-300'}`}>
+                ${isEntregue ? 'bg-blue-700 text-white border-blue-200 shadow-lg' : 'bg-white border-slate-100 text-slate-300'}`}>
                                                 <ShieldCheck size={20} strokeWidth={3} className={isEntregue ? 'text-white' : 'text-slate-300'} />
                                             </div>
-                                            <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isEntregue ? 'text-slate-900' : 'text-slate-400'}`}>Entregue</span>
+                                            <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isEntregue ? 'text-blue-700 dark:text-blue-400' : 'text-slate-400'}`}>Entregue</span>
                                         </div>
                                     </div>
                                 </div>
@@ -843,8 +838,7 @@ const DashboardCliente = () => {
                                 </div>
                             </div>
                         </div>
-                    );
-                })()
+                    )
             )}
         </div>
     );
