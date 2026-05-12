@@ -42,11 +42,11 @@ const HistoricoConcluidos = () => {
     );
 
     return (
-        // Fundo da Página: bg-slate-50 | Dark: bg-[#020617]
-        <div className="min-h-screen bg-slate-50 dark:bg-[#020617] font-sans pb-20 transition-colors duration-500">
+        /* 1. TRAVAMOS O BODY: h-screen impede o scroll da página inteira. flex-col organiza topo e corpo. */
+        <div className="h-screen overflow-hidden bg-slate-50 dark:bg-[#020617] font-sans transition-colors duration-500 flex flex-col">
 
-            {/* --- HEADER DASHBOARD (Sticky & Glassmorphism) --- */}
-            <div className="bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 sticky top-0 z-30 shadow-sm print:hidden">
+            {/* --- HEADER DASHBOARD (Fixo no topo através do flex-none) --- */}
+            <div className="flex-none bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 z-30 shadow-sm print:hidden">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between">
                     <div className="flex items-center gap-4 md:gap-6">
                         <button
@@ -76,95 +76,98 @@ const HistoricoConcluidos = () => {
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto px-4 md:px-6 pt-8 md:pt-12 print:hidden">
+            {/* Área de conteúdo que permite o scroll e utiliza sua classe do index.css */}
+            <main className="flex-1 overflow-y-auto modern-scroll-v print:hidden">
+                <div className="max-w-5xl mx-auto px-4 md:px-6 pt-8 md:pt-12">
+                    
+                    {/* SUBHEADER INFORMATIVO */}
+                    <div className="flex items-center justify-between mb-8 px-2 md:px-0">
+                        <h3 className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                            <CheckCircle2 size={16} className="text-emerald-500" /> Serviços Finalizados
+                        </h3>
+                        {!loading && (
+                            <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-800 animate-in fade-in">
+                                Total: {listaFiltrada.length}
+                            </span>
+                        )}
+                    </div>
 
-                {/* SUBHEADER INFORMATIVO */}
-                <div className="flex items-center justify-between mb-8 px-2 md:px-0">
-                    <h3 className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-500" /> Serviços Finalizados
-                    </h3>
-                    {!loading && (
-                        <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-800 animate-in fade-in">
-                            Total: {listaFiltrada.length}
-                        </span>
-                    )}
-                </div>
-
-                {/* LISTAGEM DE CARDS */}
-                <div className="grid gap-4 md:gap-6">
-                    {loading ? (
-                        /* --- SKELETON LOADING BRUTALISTA --- */
-                        Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between animate-pulse">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-14 h-14 md:w-16 md:h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl"></div>
-                                    <div className="space-y-3">
-                                        <div className="h-2 w-20 bg-slate-100 dark:bg-slate-800 rounded-full"></div>
-                                        <div className="h-5 w-32 md:w-48 bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    {/* LISTAGEM DE CARDS */}
+                    <div className="grid gap-4 md:gap-6 pb-20">
+                        {loading ? (
+                            /* --- SKELETON LOADING BRUTALISTA --- */
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between animate-pulse">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl"></div>
+                                        <div className="space-y-3">
+                                            <div className="h-2 w-20 bg-slate-100 dark:bg-slate-800 rounded-full"></div>
+                                            <div className="h-5 w-32 md:w-48 bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                                        </div>
                                     </div>
                                 </div>
+                            ))
+                        ) : listaFiltrada.length === 0 ? (
+                            /* --- ESTADO VAZIO --- */
+                            <div className="bg-white dark:bg-slate-900 p-12 md:p-20 rounded-[3rem] md:rounded-[4rem] text-center border-4 border-dashed border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in transition-colors">
+                                <Search size={48} className="text-slate-200 dark:text-slate-800 mx-auto mb-4" />
+                                <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-[10px] italic">
+                                    Nenhum registro encontrado no arquivo.
+                                </p>
                             </div>
-                        ))
-                    ) : listaFiltrada.length === 0 ? (
-                        /* --- ESTADO VAZIO --- */
-                        <div className="bg-white dark:bg-slate-900 p-12 md:p-20 rounded-[3rem] md:rounded-[4rem] text-center border-4 border-dashed border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in transition-colors">
-                            <Search size={48} className="text-slate-200 dark:text-slate-800 mx-auto mb-4" />
-                            <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-[10px] italic">
-                                Nenhum registro encontrado no arquivo.
-                            </p>
-                        </div>
-                    ) : (
-                        /* --- LISTA REAL COM ANIMAÇÃO --- */
-                        <div className="space-y-4 md:space-y-6">
-                            {listaFiltrada.map((os, index) => (
-                                <div
-                                    key={os.id}
-                                    onClick={() => verDetalhes(os.id)}
-                                    style={{ animationDelay: `${index * 50}ms` }}
-                                    className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl dark:hover:shadow-emerald-900/10 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between group overflow-hidden relative animate-in fade-in slide-in-from-bottom-2"
-                                >
-                                    {/* Linha Lateral Brutalista (Ativada no Hover) */}
-                                    <div className="absolute left-0 top-0 bottom-0 w-2 bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        ) : (
+                            /* --- LISTA REAL COM ANIMAÇÃO --- */
+                            <div className="space-y-4 md:space-y-6">
+                                {listaFiltrada.map((os, index) => (
+                                    <div
+                                        key={os.id}
+                                        onClick={() => verDetalhes(os.id)}
+                                        style={{ animationDelay: `${index * 50}ms` }}
+                                        className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl dark:hover:shadow-emerald-900/10 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between group overflow-hidden relative animate-in fade-in slide-in-from-bottom-2"
+                                    >
+                                        {/* Linha Lateral Brutalista (Ativada no Hover) */}
+                                        <div className="absolute left-0 top-0 bottom-0 w-2 bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                                    <div className="flex items-center gap-4 md:gap-6">
-                                        {/* Ícone: bg-emerald-50 | Dark: bg-emerald-900/20 */}
-                                        <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 dark:text-emerald-400 p-4 md:p-5 rounded-2xl md:rounded-3xl transition-transform duration-500 group-hover:rotate-[10deg] shadow-inner shrink-0">
-                                            <Smartphone size={window.innerWidth < 768 ? 24 : 32} />
-                                        </div>
+                                        <div className="flex items-center gap-4 md:gap-6">
+                                            {/* Ícone: bg-emerald-50 | Dark: bg-emerald-900/20 */}
+                                            <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 dark:text-emerald-400 p-4 md:p-5 rounded-2xl md:rounded-3xl transition-transform duration-500 group-hover:rotate-[10deg] shadow-inner shrink-0">
+                                                <Smartphone size={window.innerWidth < 768 ? 24 : 32} />
+                                            </div>
 
-                                        <div className="flex flex-col">
-                                            <p className="text-[9px] md:text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-1">
-                                                OS #{os.id}
-                                            </p>
-                                            <h3 className="text-base md:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-tight uppercase group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors italic">
-                                                {os.modelo}
-                                            </h3>
-                                            <p className="text-xs md:text-sm text-slate-400 dark:text-slate-500 font-bold flex items-center gap-1 mt-1">
-                                                <User size={14} className="opacity-50 text-emerald-500" /> {os.cliente}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between md:justify-end gap-6 md:gap-10 mt-6 md:mt-0 px-2 md:px-4 border-t md:border-t-0 border-slate-50 dark:border-slate-800 pt-4 md:pt-0">
-                                        <div className="text-left md:text-right">
-                                            <p className="text-[8px] md:text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest mb-1">Finalização</p>
-                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-black justify-start md:justify-end">
-                                                <Calendar size={14} className="text-emerald-500" />
-                                                <span className="text-xs md:text-sm tracking-tighter">{os.data_finalizacao}</span>
+                                            <div className="flex flex-col">
+                                                <p className="text-[9px] md:text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-1">
+                                                    OS #{os.id}
+                                                </p>
+                                                <h3 className="text-base md:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-tight uppercase group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors italic">
+                                                    {os.modelo}
+                                                </h3>
+                                                <p className="text-xs md:text-sm text-slate-400 dark:text-slate-500 font-bold flex items-center gap-1 mt-1">
+                                                    <User size={14} className="opacity-50 text-emerald-500" /> {os.cliente}
+                                                </p>
                                             </div>
                                         </div>
 
-                                        {/* Botão de Seta Brutalista */}
-                                        <div className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-600 rounded-2xl group-hover:bg-emerald-500 dark:group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-xl active:scale-90">
-                                            <ChevronRight size={20} strokeWidth={3} />
+                                        <div className="flex items-center justify-between md:justify-end gap-6 md:gap-10 mt-6 md:mt-0 px-2 md:px-4 border-t md:border-t-0 border-slate-50 dark:border-slate-800 pt-4 md:pt-0">
+                                            <div className="text-left md:text-right">
+                                                <p className="text-[8px] md:text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest mb-1">Finalização</p>
+                                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-black justify-start md:justify-end">
+                                                    <Calendar size={14} className="text-emerald-500" />
+                                                    <span className="text-xs md:text-sm tracking-tighter">{os.data_finalizacao}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Botão de Seta Brutalista */}
+                                            <div className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-600 rounded-2xl group-hover:bg-emerald-500 dark:group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-xl active:scale-90">
+                                                <ChevronRight size={20} strokeWidth={3} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            </main>
 
             {/* --- MODAL DE DETALHES / VISUALIZAÇÃO DE RELATÓRIO --- */}
             {detalhesOS && (

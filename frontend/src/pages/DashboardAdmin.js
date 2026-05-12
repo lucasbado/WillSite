@@ -13,6 +13,7 @@ import api from './api';
 import html2pdf from 'html2pdf.js';
 import { QRCodeSVG } from 'qrcode.react';
 
+
 const DashboardAdmin = () => {
     // ... seus estados atuais ...
     const [tab, setTab] = useState(localStorage.getItem('sgat_tab_preference') || 'lista');
@@ -904,7 +905,7 @@ const DashboardAdmin = () => {
             </aside>
 
             {/* --- CONTEÚDO PRINCIPAL --- */}
-            <main className="flex-1 h-screen overflow-y-auto bg-slate-50 dark:bg-[#020617] p-6 lg:p-12 pt-28 lg:pt-12 custom-scrfbar transition-colors duration-300">
+            <main className="flex-1 h-screen overflow-y-auto bg-slate-50 dark:bg-[#020617] p-6 lg:p-12 pt-28 lg:pt-12 modern-scroll-v h-[600px] transition-colors duration-300">
 
                 <header className="flex flex-col gap-6 mb-8 lg:mb-12">
                     <div>
@@ -942,7 +943,7 @@ const DashboardAdmin = () => {
                 </header>
 
                 {/* KPI CARDS: Cards bg-white | Dark: bg-slate-900 */}
-                <div className="flex lg:grid lg:grid-cols-3 gap-4 lg:gap-8 overflow-x-auto pb-4 lg:pb-0 mb-8 snap-x no-scrollbar">
+                <div className="flex lg:grid lg:grid-cols-3 gap-4 lg:gap-8 overflow-x-auto pb-4 lg:pb-0 mb-8 snap-x no-scrollbar ">
 
                     {/* Card Fila */}
                     <div className="min-w-[240px] flex-1 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800/50 flex items-center justify-between snap-center transition-all">
@@ -1074,7 +1075,7 @@ const DashboardAdmin = () => {
                             <div className="w-full animate-in fade-in duration-500">
 
                                 {/* --- VISÃO DESKTOP: TABELA --- */}
-                                <div className="hidden md:block overflow-x-auto rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/50 shadow-sm transition-colors duration-300">
+                                <div className="hidden md:block overflow-x-auto custom-scroll-table rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/50 shadow-sm transition-colors duration-300 pb-4">
                                     <table className="w-full border-collapse">
                                         <thead>
                                             {/* Header: bg-slate-50 | Dark: bg-slate-950/50 */}
@@ -1306,34 +1307,37 @@ const DashboardAdmin = () => {
                             </div>
                         ) : (
                             /* --- CONTAINER DA ESCALA COM SNAP SCROLL --- */
-                            <div className="flex gap-4 md:gap-8 overflow-x-auto pb-10 p-4 md:p-10 snap-x snap-mandatory scrollbar-hide">
+                            <div className="flex gap-6 overflow-x-auto pb-8 pt-4 px-2 snap-x snap-mandatory modern-scroll-h">
                                 {diasDoMes.map((dia) => (
                                     <div
                                         key={dia.dataISO}
-                                        className={`min-w-[85vw] md:min-w-[320px] md:w-80 flex flex-col gap-6 transition-all snap-center ${dia.eHoje ? 'scale-100 md:scale-105 z-10' : 'opacity-90 md:opacity-80 hover:opacity-100'
+                                        className={`flex-none w-[300px] md:w-[350px] snap-center flex flex-col gap-4 transition-all duration-500 ${dia.eHoje ? 'opacity-100 scale-100' : 'opacity-80 hover:opacity-100 scale-[0.98]'
                                             }`}
                                     >
-                                        {/* Header do Dia (Brutalista) */}
-                                        <div className={`flex items-center justify-between p-5 rounded-[2.5rem] border-4 transition-all ${dia.eHoje
-                                            ? 'bg-blue-600 dark:bg-blue-500 border-slate-900 dark:border-slate-800 shadow-[7px_7px_0px_0px_rgba(15,23,42,1)] dark:shadow-[7px_7px_0px_0px_rgba(2,6,23,1)]'
-                                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] dark:shadow-[2px_2px_0px_0px_rgba(2,6,23,1)]'
+                                        {/* HEADER DO DIA: Brutalista e Informativo */}
+                                        <div className={`p-5 rounded-[2rem] border-4 flex items-center justify-between transition-all ${dia.eHoje
+                                                ? 'bg-blue-600 border-slate-900 shadow-[6px_6px_0px_0px_rgba(15,23,42,1)]'
+                                                : 'bg-white dark:bg-slate-900 border-slate-800 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]'
                                             }`}>
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-14 h-14 rounded-2xl border-2 border-slate-900 flex flex-col items-center justify-center ${dia.eHoje ? 'bg-white dark:bg-slate-50 text-blue-600' : 'bg-slate-900 dark:bg-slate-950 text-white'
+                                                <div className={`w-12 h-12 rounded-xl border-2 border-slate-900 flex flex-col items-center justify-center font-black ${dia.eHoje ? 'bg-white text-blue-600' : 'bg-slate-900 text-white'
                                                     }`}>
-                                                    <span className="text-[10px] font-black uppercase leading-none opacity-60">{dia.mesNome}</span>
-                                                    <span className="text-xl font-extrabold leading-none">{dia.diaNumero}</span>
+                                                    <span className="text-[9px] uppercase leading-none opacity-70">{dia.mesNome}</span>
+                                                    <span className="text-lg leading-none">{dia.diaNumero}</span>
                                                 </div>
                                                 <div>
-                                                    <h4 className={`font-black uppercase tracking-tighter italic text-sm ${dia.eHoje ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
+                                                    <h4 className={`font-black uppercase italic text-sm tracking-tighter ${dia.eHoje ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
                                                         {dia.nome} {dia.eHoje && "• HOJE"}
                                                     </h4>
+                                                    <p className={`text-[9px] font-bold uppercase opacity-60 ${dia.eHoje ? 'text-white' : ''}`}>
+                                                        {escalaSemanal[dia.dataISO]?.length || 0} Reparos
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Container de Cards do Dia */}
-                                        <div className={`space-y-4 p-2 rounded-[3rem] min-h-[400px] transition-colors ${dia.eHoje ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-transparent'
+                                        {/* LISTA DE CARDS: Espaço vertical fixo com scroll interno se necessário */}
+                                        <div className={`flex flex-col gap-4 p-3 rounded-[2.5rem] min-h-[500px] border-2 border-transparent transition-colors ${dia.eHoje ? 'bg-blue-50/20 dark:bg-blue-900/10 border-blue-500/20' : 'bg-slate-50/50 dark:bg-slate-900/30 modern-scroll-v h'
                                             }`}>
                                             {escalaSemanal[dia.dataISO]?.length > 0 ? (
                                                 escalaSemanal[dia.dataISO].map((job) => {
@@ -1345,25 +1349,39 @@ const DashboardAdmin = () => {
                                                         <div
                                                             key={job.id}
                                                             onClick={() => setSelectedOS(job)}
-                                                            className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border-4 border-slate-900 dark:border-slate-800 transition-all active:scale-95 cursor-pointer relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(2,6,23,1)] mb-4"
+                                                            className="group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border-2 border-slate-900 dark:border-slate-800 transition-all hover:-translate-y-1 active:scale-95 cursor-pointer relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]"
                                                         >
-                                                            <div className={`absolute top-0 left-0 right-0 h-2 ${statusTempo.cor}`}></div>
-                                                            <div className="flex justify-between items-center mb-4 mt-2">
-                                                                <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-950 rounded-xl font-black text-[10px] text-slate-900 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
-                                                                    <Clock size={12} strokeWidth={3} />
-                                                                    <span>{job.hora}</span>
+                                                            {/* Indicador de Prioridade */}
+                                                            <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${statusTempo.cor}`}></div>
+
+                                                            <div className="flex justify-between items-start mb-3">
+                                                                <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                                                                    <Clock size={10} className={statusTempo.nivel === 'critico' ? 'text-red-500 animate-pulse' : 'text-slate-400'} />
+                                                                    <span className="text-[10px] font-black text-slate-700 dark:text-slate-300">{job.hora}</span>
                                                                 </div>
-                                                                <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 font-mono">#{job.id}</span>
+                                                                <span className="text-[9px] font-black text-slate-400 font-mono">#{job.id}</span>
                                                             </div>
-                                                            <h5 className="text-lg font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter leading-none mb-1">{job.modelo}</h5>
-                                                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">{job.cliente}</p>
+
+                                                            <h5 className="text-md font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                                                                {job.modelo}
+                                                            </h5>
+                                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate italic">
+                                                                {job.cliente}
+                                                            </p>
+
+                                                            {/* Badge de Status no Card */}
+                                                            <div className="mt-3 flex justify-end">
+                                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-md text-white uppercase ${statusTempo.cor}`}>
+                                                                    {statusTempo.label}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     );
                                                 })
                                             ) : (
-                                                <div className="py-20 border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 opacity-40 grayscale italic">
-                                                    <Calendar size={32} strokeWidth={2} className="mb-2" />
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Disponível</p>
+                                                <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 opacity-30 italic">
+                                                    <Calendar size={40} strokeWidth={1} className="mb-2" />
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Sem Agenda</p>
                                                 </div>
                                             )}
                                         </div>

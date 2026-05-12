@@ -150,7 +150,7 @@ const GestaoEstoque = () => {
 
     return (
         /* --- ESTRUTURA PRINCIPAL --- */
-        < div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-500/30 transition-colors duration-500" >
+        <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans modern-scroll-v">
 
             {/* 1. EFEITO DE PROFUNDIDADE (Glows que se adaptam ao tema) */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden" >
@@ -159,7 +159,7 @@ const GestaoEstoque = () => {
             </div>
 
             {/* --- HEADER RESPONSIVO --- */}
-            <div div className="bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm transition-all" >
+            <div className="bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm transition-all" >
                 <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between">
                     <div className="flex items-center gap-3 md:gap-6">
                         <button
@@ -213,7 +213,8 @@ const GestaoEstoque = () => {
                         {/* 2. CHIPS DE MARCAS (Toggle Logic) */}
                         <div className="space-y-3">
                             <p className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em] italic px-1">Manufacturer / Vendor</p>
-                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar snap-x">
+                            {/* ADICIONE modern-scroll-h AQUI */}
+                            <div className="flex gap-2 overflow-x-auto pb-4 modern-scroll-h snap-x">
                                 {marcasSgat.map(m => (
                                     <button
                                         key={m}
@@ -248,7 +249,8 @@ const GestaoEstoque = () => {
                         {/* 4. SELETOR DE MODELOS (Toggle no Input de Busca) */}
                         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                             <p className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em] italic mb-3 px-1">Model Compatibility Scan</p>
-                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                            {/* ADICIONE modern-scroll-h AQUI TAMBÉM */}
+                            <div className="flex gap-2 overflow-x-auto pb-4 modern-scroll-h">
                                 {[...new Set(estoque.map(i => i.modelo_compativel))].filter(Boolean).map(mod => (
                                     <button
                                         key={mod}
@@ -268,80 +270,81 @@ const GestaoEstoque = () => {
 
                 {/* --- LISTA/TABELA COM ESTÉTICA TECH --- */}
                 <div className="md:bg-white dark:md:bg-slate-950 md:rounded-[3rem] md:border-4 border-slate-100 md:border-slate-900 dark:md:border-slate-800 md:shadow-2xl overflow-hidden transition-all duration-300">
-
                     {/* VISÃO DESKTOP: TABLE TECH */}
-                    <table className="hidden md:table w-full border-collapse">
-                        <thead>
-                            <tr className="text-left bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic">Component_ID / Node</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-center">Units_Available</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-center">Unit_Value</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-center">Operational_Status</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-right">System_Access</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
-                            {estoqueFiltrado.map(item => {
-                                const isLow = item.quantidade <= item.minimo;
-                                return (
-                                    <tr key={item.id} className="hover:bg-blue-600/5 transition-all group">
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-6">
-                                                {/* Ícone Dinâmico: bg-slate-900 | Dark: bg-slate-950 */}
-                                                <div className={`p-4 rounded-2xl border-2 transition-all ${isLow
-                                                    ? 'bg-red-500/10 border-red-500/50 text-red-500 animate-pulse'
-                                                    : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-blue-600 dark:text-blue-400'}`}>
-                                                    {getIconByPeca(item.nome)}
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-slate-800 dark:text-slate-100 text-lg uppercase tracking-tighter leading-none mb-2 italic">
-                                                        {item.nome}
-                                                    </p>
-                                                    <div className="flex gap-2">
-                                                        <span className="text-[9px] font-black bg-blue-600/10 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded uppercase tracking-wider">
-                                                            {item.modelo_compativel || 'Universal'}
-                                                        </span>
-                                                        <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 px-2 py-0.5 rounded uppercase font-mono">
-                                                            {item.categoria || 'Generic'}
-                                                        </span>
+                    <div className="hidden md:block max-h-[700px] overflow-y-auto modern-scroll-v">
+                        <table className="w-full border-collapse sticky-header">
+                            <thead>
+                                <tr className="text-left bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
+                                    <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic">Component_ID / Node</th>
+                                    <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-center">Units_Available</th>
+                                    <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-center">Unit_Value</th>
+                                    <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-center">Operational_Status</th>
+                                    <th className="px-8 py-6 text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] italic text-right">System_Access</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                                {estoqueFiltrado.map(item => {
+                                    const isLow = item.quantidade <= item.minimo;
+                                    return (
+                                        <tr key={item.id} className="hover:bg-blue-600/5 transition-all group">
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-6">
+                                                    {/* Ícone Dinâmico: bg-slate-900 | Dark: bg-slate-950 */}
+                                                    <div className={`p-4 rounded-2xl border-2 transition-all ${isLow
+                                                        ? 'bg-red-500/10 border-red-500/50 text-red-500 animate-pulse'
+                                                        : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-blue-600 dark:text-blue-400'}`}>
+                                                        {getIconByPeca(item.nome)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-black text-slate-800 dark:text-slate-100 text-lg uppercase tracking-tighter leading-none mb-2 italic">
+                                                            {item.nome}
+                                                        </p>
+                                                        <div className="flex gap-2">
+                                                            <span className="text-[9px] font-black bg-blue-600/10 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded uppercase tracking-wider">
+                                                                {item.modelo_compativel || 'Universal'}
+                                                            </span>
+                                                            <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 px-2 py-0.5 rounded uppercase font-mono">
+                                                                {item.categoria || 'Generic'}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            {/* Controle de Qtd: bg-slate-50 | Dark: bg-slate-900/50 */}
-                                            <div className="flex items-center justify-center gap-6 bg-slate-50 dark:bg-slate-900/50 w-fit mx-auto p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
-                                                <button onClick={() => handleAjustarQtd(item.id, 'subtrai')} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all active:scale-90"><Minus size={16} strokeWidth={3} /></button>
-                                                <span className={`text-2xl font-black font-mono w-10 text-center ${isLow ? 'text-red-600 dark:text-red-500' : 'text-slate-800 dark:text-blue-400'}`}>{item.quantidade}</span>
-                                                <button onClick={() => handleAjustarQtd(item.id, 'soma')} className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-90"><Plus size={16} strokeWidth={3} /></button>
-                                            </div>
-                                        </td>
-                                        {/* No tbody, adicione a célula: */}
-                                        <td className="px-8 py-6 text-center">
-                                            <p className="text-lg font-black text-emerald-600 dark:text-emerald-500 font-mono tracking-tighter">
-                                                R$ {item.preco_venda?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </p>
-                                            <p className="text-[8px] font-bold text-slate-400 uppercase">Valor de Saída</p>
-                                        </td>
-                                        <td className="px-8 py-6 text-center">
-                                            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border-2 ${isLow
-                                                ? 'bg-red-500/10 border-red-500/50 text-red-600 dark:text-red-500'
-                                                : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600 dark:text-emerald-500'}`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${isLow ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></div>
-                                                {isLow ? 'Reposição' : 'Em Estoque'}
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <div className="flex justify-end gap-3">
-                                                <button onClick={() => abrirModalEdicao(item)} className="p-3 bg-white dark:bg-slate-900 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-sm"><Edit3 size={18} /></button>
-                                                <button onClick={() => handleDeletar(item.id)} className="p-3 bg-white dark:bg-slate-900 text-slate-400 hover:text-red-600 dark:hover:text-red-500 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-sm"><Trash2 size={18} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                {/* Controle de Qtd: bg-slate-50 | Dark: bg-slate-900/50 */}
+                                                <div className="flex items-center justify-center gap-6 bg-slate-50 dark:bg-slate-900/50 w-fit mx-auto p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                                                    <button onClick={() => handleAjustarQtd(item.id, 'subtrai')} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all active:scale-90"><Minus size={16} strokeWidth={3} /></button>
+                                                    <span className={`text-2xl font-black font-mono w-10 text-center ${isLow ? 'text-red-600 dark:text-red-500' : 'text-slate-800 dark:text-blue-400'}`}>{item.quantidade}</span>
+                                                    <button onClick={() => handleAjustarQtd(item.id, 'soma')} className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-90"><Plus size={16} strokeWidth={3} /></button>
+                                                </div>
+                                            </td>
+                                            {/* No tbody, adicione a célula: */}
+                                            <td className="px-8 py-6 text-center">
+                                                <p className="text-lg font-black text-emerald-600 dark:text-emerald-500 font-mono tracking-tighter">
+                                                    R$ {item.preco_venda?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </p>
+                                                <p className="text-[8px] font-bold text-slate-400 uppercase">Valor de Saída</p>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border-2 ${isLow
+                                                    ? 'bg-red-500/10 border-red-500/50 text-red-600 dark:text-red-500'
+                                                    : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600 dark:text-emerald-500'}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${isLow ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></div>
+                                                    {isLow ? 'Reposição' : 'Em Estoque'}
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => abrirModalEdicao(item)} className="p-3 bg-white dark:bg-slate-900 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-sm"><Edit3 size={18} /></button>
+                                                    <button onClick={() => handleDeletar(item.id)} className="p-3 bg-white dark:bg-slate-900 text-slate-400 hover:text-red-600 dark:hover:text-red-500 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-sm"><Trash2 size={18} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
 
                     {/* VISÃO MOBILE: COMMAND MODULES (Cards Brutalistas) */}
                     <div className="md:hidden space-y-6 px-1 pb-24">
@@ -439,7 +442,7 @@ const GestaoEstoque = () => {
                         </div>
 
                         {/* 2. Formulário (Scrollable) */}
-                        <div className="w-full md:w-2/3 p-8 md:p-12 md:p-16 relative overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 transition-colors">
+                        <div className="w-full md:w-2/3 p-8 md:p-12 md:p-16 relative overflow-y-auto modern-scroll-v bg-white dark:bg-slate-900 transition-colors">
                             {/* Botão fechar desktop */}
                             <button onClick={fecharModal} className="hidden md:block absolute top-10 right-10 text-slate-300 dark:text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 transition-all">
                                 <X size={32} />
@@ -487,7 +490,7 @@ const GestaoEstoque = () => {
                                     </label>
 
                                     {/* Seleção de Marca */}
-                                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                    <div className="flex gap-2 overflow-x-auto pb-2 modern-scroll-h">
                                         {['Apple', 'Samsung', 'Motorola', 'Xiaomi', 'Universal'].map(marca => (
                                             <button
                                                 key={marca} type="button"
@@ -504,32 +507,13 @@ const GestaoEstoque = () => {
 
                                     {/* Grid de Modelos */}
                                     <div className="relative group">
-                                        {/* Estilo Injetado para garantir a beleza da barra */}
-                                        <style jsx>{`
-                                            .custom-scroll-modern::-webkit-scrollbar {
-                                            width: 5px;
-                                            }
-                                            .custom-scroll-modern::-webkit-scrollbar-track {
-                                            background: transparent;
-                                            }
-                                            .custom-scroll-modern::-webkit-scrollbar-thumb {
-                                            background: rgba(100, 116, 139, 0.2); /* Slate suave */
-                                            border-radius: 20px;
-                                            transition: all 0.3s;
-                                            }
-                                            .custom-scroll-modern:hover::-webkit-scrollbar-thumb {
-                                            background: rgba(37, 99, 235, 0.5); /* Azul ao dar hover */
-                                            }
-                                            .dark .custom-scroll-modern::-webkit-scrollbar-thumb {
-                                            background: rgba(51, 65, 85, 0.5);
-                                            }
-                                        `}</style>
+
 
                                         {/* Máscaras de Gradiente para suavizar a entrada/saída */}
                                         <div className="absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none bg-gradient-to-b from-slate-50 dark:from-slate-950 to-transparent opacity-100" />
                                         <div className="absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none bg-gradient-to-t from-slate-50 dark:from-slate-950 to-transparent opacity-100" />
 
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-52 overflow-y-auto p-2 pr-3 custom-scroll-modern">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-52 overflow-y-auto p-2 pr-3 modern-scroll-v">
                                             {listaModelos
                                                 .filter(m => filtroMarcaModelo === 'Universal' || m.marca === filtroMarcaModelo)
                                                 .map(m => {
@@ -540,8 +524,8 @@ const GestaoEstoque = () => {
                                                             type="button"
                                                             onClick={() => setFormData({ ...formData, modelo_compativel: `${m.marca} ${m.modelo}` })}
                                                             className={`p-4 rounded-2xl border-2 text-left transition-all duration-300 ${isSelected
-                                                                    ? 'border-blue-600 bg-blue-50/30 dark:bg-blue-500/10 shadow-md scale-[1.02]'
-                                                                    : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-blue-200 dark:hover:border-blue-900'
+                                                                ? 'border-blue-600 bg-blue-50/30 dark:bg-blue-500/10 shadow-md scale-[1.02]'
+                                                                : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-blue-200 dark:hover:border-blue-900'
                                                                 }`}
                                                         >
                                                             <div className="flex flex-col">
