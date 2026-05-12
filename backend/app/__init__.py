@@ -13,10 +13,7 @@ from sqlalchemy import text
 
 load_dotenv()
 load_dotenv()
-print(f"DEBUG MAIL USER: {os.getenv('MAIL_USERNAME')}")
-print(
-    f"DEBUG MAIL PASS: {os.getenv('MAIL_PASSWORD')[:4]}****"
-)  # Mostra só o início por segurança
+
 
 # Inicializamos os objetos das extensões
 db = SQLAlchemy()
