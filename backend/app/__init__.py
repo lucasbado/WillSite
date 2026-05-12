@@ -86,7 +86,7 @@ def create_app():
 
     # Inicialização das Extensões
     # Opção B: Permitir localhost + sua URL do ngrok (Mais seguro)
-    CORS(app, resources={r"/*": {"origins": "*"}})  # Libera geral para teste com ngrok
+    CORS(app, resources={r"/api/*": {"origins": "*"}})  # Libera geral para teste com ngrok
     
 
     db.init_app(app)

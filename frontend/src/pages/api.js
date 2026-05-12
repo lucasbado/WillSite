@@ -1,15 +1,7 @@
 import axios from 'axios';
 
-// Prioriza a variável da Vercel, se não existir, tenta o localhost
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-
 const api = axios.create({
-    baseURL: baseURL,
-    // Removido o header do ngrok e adicionado timeout para evitar requisições infinitas
-    timeout: 10000, 
-    headers: {
-        'Content-Type': 'application/json'
-    }
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api'
 });
 
 api.interceptors.request.use((config) => {
