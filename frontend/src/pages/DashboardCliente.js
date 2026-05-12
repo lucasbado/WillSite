@@ -760,11 +760,11 @@ const DashboardCliente = () => {
 
                                         {/* Status 4: Finalizado (Tamanho Fixo) */}
                                         <div className="flex flex-col items-center gap-3 shrink-0">
-                                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 
-                ${isEntregue ? 'bg-blue-700 text-white border-blue-200 shadow-lg' : 'bg-white border-slate-100 text-slate-300'}`}>
-                                                <ShieldCheck size={20} strokeWidth={3} className={isEntregue ? 'text-white' : 'text-slate-300'} />
+                                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500
+                ${isEntregue ? 'bg-emerald-700 text-white border-emerald-200 shadow-lg' : 'bg-white border-slate-100 text-slate-300'}`}>
+                                                <ShieldCheck size={20} strokeWidth={3} />
                                             </div>
-                                            <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isEntregue ? 'text-blue-700 dark:text-blue-400' : 'text-slate-400'}`}>Entregue</span>
+                                            <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-tighter ${isEntregue ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>Entregue</span>
                                         </div>
                                     </div>
                                 </div>
