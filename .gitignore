@@ -1,0 +1,33 @@
+# --- Frontend (Node/React) ---
+node_modules/
+build/
+dist/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Backend (Python/Flask) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+.venv/
+env/
+.env
+instance/
+.pytest_cache/
+# Se usar SQLite localmente:
+*.db
+*.sqlite3
+
+# --- Editores e Sistema ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,234 @@
+from flask import Blueprint, request, jsonify
+from werkzeug.security import check_password_hash, generate_password_hash
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from ..models import User, db, WorkOrder, User
+from sqlalchemy import func
+from ..utils import enviar_notificacao_status
+
+auth_bp = Blueprint("auth", __name__)
+
+
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(email=data.get("email")).first()
+
+    if user and check_password_hash(user.password_hash, data.get("password")):
+        # Adicionamos o "role" no identity para facilitar no Front-end e Chatbot
+        access_token = create_access_token(
+            identity=str(user.id), additional_claims={"role": user.role}
+        )
+        return (
+            jsonify(
+                {
+                    "access_token": access_token,
+                    "role": user.role,
+                    "user_name": user.username,
+                    "user_id": user.id,
+                }
+            ),
+            200,
+        )
+
+    return jsonify({"msg": "E-mail ou senha inválidos"}), 401
+
+@auth_bp.route('/perfil', methods=['GET'])
+@jwt_required()
+def obter_perfil():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({"msg": "Usuário não encontrado"}), 404
+        
+    return jsonify({
+        "nome_completo": user.nome_completo,
+        "email": user.email,
+        "cpf": user.cpf,
+        "cep": user.cep,
+        "endereco": user.endereco,
+        "telefone": user.telefone,
+        "role": user.role
+    }), 200
+
+# Rota para atualizar os dados do perfil (PATCH)
+@auth_bp.route('/perfil/atualizar', methods=['PATCH'])
+@jwt_required()
+def atualizar_perfil():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    data = request.get_json()
+
+    if not user:
+        return jsonify({"msg": "Usuário não encontrado"}), 404
+
+    # Atualiza apenas campos permitidos (nome, email, cep, endereço)
+    # Mantemos o valor atual se o campo não for enviado no JSON
+    user.nome_completo = data.get('nome_completo', user.nome_completo)
+    user.email = data.get('email', user.email)
+    user.cep = data.get('cep', user.cep)
+    user.endereco = data.get('endereco', user.endereco)
+    user.telefone = data.get('telefone', user.telefone) 
+
+    try:
+        db.session.commit()
+        return jsonify({"msg": "Perfil atualizado com sucesso!"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Erro ao atualizar dados no banco"}), 500
+
+@auth_bp.route('/admin/clientes', methods=['GET'])
+@jwt_required()
+def listar_clientes_admin():
+    # Apenas admin pode ver a lista completa
+    # Usamos um join para contar as OS de cada usuário automaticamente
+    usuarios = db.session.query(
+        User, 
+        func.count(WorkOrder.id).label('total_os')
+    ).outerjoin(WorkOrder).group_by(User.id).all()
+
+    lista_clientes = []
+    for user, total_os in usuarios:
+        if user.role != 'admin':
+            lista_clientes.append({
+                "id": user.id,
+                "nome": user.nome_completo,
+                "email": user.email,
+                "cpf": user.cpf,
+                "telefone": user.telefone, # No seu caso, o username é o telefone/contato
+                "total_os": total_os,
+                "endereco": f"{user.endereco}, CEP: {user.cep}" if user.endereco else "Não informado",
+                "cep": user.cep
+            })
+            
+    return jsonify(lista_clientes), 200
+
+@auth_bp.route('/admin/cliente/<int:user_id>', methods=['GET'])
+@jwt_required()
+def detalhes_cliente_admin(user_id):
+    claims = get_jwt()
+    if claims.get('role') != 'admin':
+        return jsonify({"msg": "Acesso negado"}), 403
+
+    user = User.query.get_or_404(user_id)
+    ordens = WorkOrder.query.filter_by(client_id=user_id).order_by(WorkOrder.created_at.desc()).all()
+
+    historico_completo = []
+    for o in ordens:
+        # Puxamos as peças de CADA ordem de serviço
+        pecas_da_os = []
+        for item in o.items_used:
+            pecas_da_os.append({
+                "nome": item.inventory_item.nome,
+                "quantidade": item.quantidade
+            })
+
+        historico_completo.append({
+            "id": o.id,
+            "modelo": o.device_model,
+            "status": o.status,
+            "problema": o.problem_description,
+            "laudo_tecnico": o.laudo_tecnico, # Agora o laudo vai junto
+            "data": o.created_at.strftime('%d/%m/%Y'),
+            "pecas": pecas_da_os, # Agora 'pecas' está definido aqui!
+            "deletada": o.deletada
+        })
+
+    return jsonify({
+        "info": {
+            "nome": user.nome_completo,
+            "email": user.email,
+            "telefone": user.telefone,
+            "cpf": user.cpf,
+            "endereco": user.endereco,
+            "cep": user.cep
+        },
+        "historico": historico_completo
+    }), 200
+
+
+@auth_bp.route('/verificar-cpf/<string:cpf>', methods=['GET'])
+def verificar_cpf(cpf):
+    # Remove qualquer máscara que possa ter vindo na URL
+    cpf_limpo = ''.join(filter(str.isdigit, cpf))
+    
+    user = User.query.filter_by(cpf=cpf_limpo).first()
+    
+    if user:
+        return jsonify({
+            "existe": True, 
+            "msg": "Este CPF já possui um cadastro ativo."
+        }), 200
+    
+    return jsonify({"existe": False}), 200
+
+@auth_bp.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+
+    # Verifique se os nomes batem com o models.py
+    novo_usuario = User(
+        username=data.get("username"),  # Em vez de 'name'
+        nome_completo=data.get("nome_completo"),
+        email=data.get("email"),
+        cpf=data.get("cpf"),
+        cep=data.get("cep"),
+        endereco=data.get("endereco"),
+        role="cliente",
+        telefone=data.get("telefone"),
+    )
+    novo_usuario.set_password(data.get("password"))
+
+    db.session.add(novo_usuario)
+    db.session.commit()
+
+    return jsonify({"msg": "Usuário criado!"}), 201
+
+
+# --- NOVA ROTA: LISTAR TODOS OS USUÁRIOS (Para o User Management) ---
+@auth_bp.route('/admin/usuarios', methods=['GET'])
+@jwt_required()
+def listar_todos_usuarios():
+    claims = get_jwt()
+    if claims.get('role') != 'admin':
+        return jsonify({"msg": "Acesso negado"}), 403
+
+    # Busca todos os usuários
+    usuarios = User.query.all()
+    
+    lista = []
+    for u in usuarios:
+        lista.append({
+            "id": u.id,
+            "nome_completo": u.nome_completo,
+            "email": u.email,
+            "cpf": u.cpf,
+            "role": u.role,
+            "telefone": u.telefone  # Ou u.telefone se você tiver esse campo
+        })
+    return jsonify(lista), 200
+
+# --- NOVA ROTA: DELETAR USUÁRIO ---
+@auth_bp.route('/admin/usuarios/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+def deletar_usuario_admin(user_id):
+    claims = get_jwt()
+    if claims.get('role') != 'admin':
+        return jsonify({"msg": "Acesso negado"}), 403
+
+    user = User.query.get_or_404(user_id)
+    
+    # Impede que o admin delete a si mesmo
+    if str(user.id) == get_jwt_identity():
+        return jsonify({"msg": "Você não pode deletar sua própria conta"}), 400
+
+    try:
+        # Nota: Se houver OS vinculadas, você pode ter erro de IntegrityError
+        # O ideal é que o banco esteja configurado com ON DELETE CASCADE
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"msg": "Usuário removido com sucesso"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Erro: Este usuário possui ordens de serviço vinculadas."}), 400
+    
