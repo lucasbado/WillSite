@@ -10,7 +10,6 @@ from datetime import timedelta
 from flask_mail import Mail
 from sqlalchemy import text
 
-
 load_dotenv()
 load_dotenv()
 
@@ -34,21 +33,26 @@ def ensure_work_orders_columns(app):
                 "valor_mao_obra": "FLOAT DEFAULT 0.0",
                 "custo_operacional": "FLOAT DEFAULT 0.0",
                 "desconto_aplicado": "FLOAT DEFAULT 0.0",
-                "total_price": "FLOAT"
+                "total_price": "FLOAT",
             }
 
             with engine.connect() as conn:
                 for column_name, column_type in required_columns.items():
-                    exists = conn.execute(text(
-                        "SELECT 1 FROM information_schema.columns "
-                        "WHERE table_name = 'work_orders' "
-                        "AND column_name = :column_name"
-                    ), {"column_name": column_name}).first()
+                    exists = conn.execute(
+                        text(
+                            "SELECT 1 FROM information_schema.columns "
+                            "WHERE table_name = 'work_orders' "
+                            "AND column_name = :column_name"
+                        ),
+                        {"column_name": column_name},
+                    ).first()
 
                     if not exists:
-                        conn.execute(text(
-                            f"ALTER TABLE work_orders ADD COLUMN {column_name} {column_type};"
-                        ))
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE work_orders ADD COLUMN {column_name} {column_type};"
+                            )
+                        )
                 conn.commit()
 
 
@@ -59,12 +63,12 @@ def create_app():
     static_dir = os.path.abspath("../frontend/build/static")
     app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
     # Configurações do Banco e JWT
-    uri = os.getenv("DATABASE_URL") 
+    uri = os.getenv("DATABASE_URL")
 
     if uri and uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = uri
+    app.config["SQLALCHEMY_DATABASE_URI"] = uri
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_pre_ping": True,  # Testa a conexão antes de cada query (resolve o SSL closed)
         "pool_recycle": 300,  # Reinicia conexões a cada 5 minutos
@@ -86,8 +90,9 @@ def create_app():
 
     # Inicialização das Extensões
     # Opção B: Permitir localhost + sua URL do ngrok (Mais seguro)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})  # Libera geral para teste com ngrok
-    
+    CORS(
+        app, resources={r"/api/*": {"origins": "*"}}
+    )  # Libera geral para teste com ngrok
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -100,15 +105,21 @@ def create_app():
     from .routes.inventory import inventory_bp
     from .routes.devices import devices_bp
     from app.routes.vendors import vendors_bp
-   
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(os_bp, url_prefix="/api/os")
     app.register_blueprint(inventory_bp, url_prefix="/api/estoque")
     app.register_blueprint(devices_bp, url_prefix="/api/devices")
-    app.register_blueprint(vendors_bp, url_prefix='/api/vendors')
+    app.register_blueprint(vendors_bp, url_prefix="/api/vendors")
 
     ensure_work_orders_columns(app)
+
+    # Logo após criar o app = Flask(__name__)
+
+
+    @app.route("/")
+    def health_check():
+        return {"status": "Backend Online", "service": "WillSite API"}, 200
 
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
