@@ -62,7 +62,12 @@ def create_app():
     static_dir = os.path.abspath("../frontend/build/static")
     app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
     # Configurações do Banco e JWT
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    uri = os.getenv("DATABASE_URL") 
+
+    if uri and uri.startswith("postgres://"):
+        uri = uri.replace("postgres://", "postgresql://", 1)
+
+    app.config['SQLALCHEMY_DATABASE_URI'] = uri
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_pre_ping": True,  # Testa a conexão antes de cada query (resolve o SSL closed)
         "pool_recycle": 300,  # Reinicia conexões a cada 5 minutos

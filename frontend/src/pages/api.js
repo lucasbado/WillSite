@@ -1,17 +1,18 @@
 import axios from 'axios';
 
-// const api = axios.create({
-//     baseURL: 'http://localhost:5000/api'
-// });
+// Prioriza a variável da Vercel, se não existir, tenta o localhost
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+    baseURL: baseURL,
+    // Removido o header do ngrok e adicionado timeout para evitar requisições infinitas
+    timeout: 10000, 
     headers: {
-        'ngrok-skip-browser-warning': 'true' // Isso aqui é a chave!
+        'Content-Type': 'application/json'
     }
 });
 
 api.interceptors.request.use((config) => {
-    // MUDANÇA AQUI: sessionStorage em vez de localStorage
     const token = sessionStorage.getItem('token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -22,9 +23,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Trata erro de conexão (quando o Render está "acordando")
+        if (!error.response) {
+            console.error("Erro de rede: O servidor pode estar iniciando.");
+        }
+
         if (error.response && error.response.status === 401) {
-            sessionStorage.clear(); // Limpa apenas a sessão desta aba
-            window.location.href = '/login';
+            sessionStorage.clear();
+            // Evita redirecionar se o usuário já estiver na página de login
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }
