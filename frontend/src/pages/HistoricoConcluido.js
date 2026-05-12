@@ -175,7 +175,7 @@ const HistoricoConcluidos = () => {
                     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-end md:items-center justify-center p-0 md:p-6 z-[100] print:hidden animate-in fade-in duration-300">
 
                         {/* Container Principal: Full screen mobile | Centralizado Desktop */}
-                        <div className="bg-white dark:bg-slate-900 rounded-t-[3rem] md:rounded-[4rem] max-w-4xl w-full h-[90vh] md:h-auto flex flex-col md:flex-row overflow-hidden shadow-3xl border border-transparent dark:border-slate-800 transition-all">
+                        <div className="bg-white dark:bg-slate-900 rounded-t-[3rem] md:rounded-[4rem] max-w-4xl w-full h-[90vh] md:h-auto flex flex-col md:flex-row overflow-y-auto md:overflow-hidden shadow-3xl border border-transparent dark:border-slate-800 transition-all modern-scroll-v">
 
                             {/* 1. Lado Escuro: Resumo Visual (Sidebar no Desktop | Header no Mobile) */}
                             <div className="w-full md:w-1/3 bg-slate-950 p-8 md:p-12 flex flex-col justify-between relative overflow-hidden text-white shrink-0">
@@ -215,7 +215,7 @@ const HistoricoConcluidos = () => {
                             </div>
 
                             {/* 2. Lado Claro/Dark: Detalhes e Ação */}
-                            <div className="w-full md:w-2/3 p-8 md:p-16 relative overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 transition-colors">
+                            <div className="w-full md:w-2/3 p-8 md:p-16 relative md:overflow-y-auto modern-scroll-v bg-white dark:bg-slate-900 transition-colors">
                                 {/* Botão fechar desktop */}
                                 <button onClick={() => setDetalhesOS(null)} className="hidden md:block absolute top-10 right-10 text-slate-300 dark:text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                                     <X size={32} />

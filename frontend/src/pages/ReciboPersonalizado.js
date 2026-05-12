@@ -421,7 +421,7 @@ const ReciboPersonalizado = () => {
                                             <p className="text-[10px] md:text-[11px] text-blue-400 font-black uppercase tracking-[0.5em] italic">Systems Monitor</p>
                                         </div>
                                         <h4 className="font-black text-3xl md:text-4xl tracking-tighter italic leading-none uppercase">
-                                            SGAT <span className="text-blue-600 dark:text-blue-500">PREVIEW</span>
+                                            Cidinho <span className="text-blue-600 dark:text-blue-500">PREVIEW</span>
                                         </h4>
                                     </div>
 
@@ -503,7 +503,7 @@ const ReciboPersonalizado = () => {
             <div id="print-area-wrapper" className="hidden print:block bg-white text-slate-900 p-12">
                 <div className="flex justify-between items-start mb-12 border-b-8 border-slate-900 pb-8">
                     <div>
-                        <h3 className="text-4xl font-black tracking-tighter uppercase leading-none italic">SGAT - Assistência Técnica</h3>
+                        <h3 className="text-4xl font-black tracking-tighter uppercase leading-none italic">Cidinho</h3>
                         <p className="text-slate-600 font-bold uppercase text-sm tracking-[0.3em] mt-3">Recibo de Prestação de Serviços Técnicos</p>
                     </div>
                     <div className="text-right">
@@ -614,7 +614,7 @@ const ReciboPersonalizado = () => {
 
                     <div className="flex flex-col items-center gap-1">
                         <p className="text-[7px] font-black uppercase text-slate-300 tracking-[0.4em] italic leading-none">
-                            SGAT Technical Solutions
+                            Cidinho
                         </p>
                         <div className="flex items-center gap-4 mt-1">
                             <span className="text-[7px] font-black text-slate-200 uppercase tracking-widest">Command Center São Paulo, SP</span>
