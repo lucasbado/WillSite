@@ -19,6 +19,7 @@ import EscalaTecnica from './pages/EscalaTecnica';
 import VisualizacaoRecibo from './pages/VisualizacaoRecibo';
 import DashboardFinanceiro from './pages/DashboardFinanceiro';
 import ScannerEntrega from './pages/ScannerEntrega';
+import ResetPassword from './pages/ResetPassword';
 
 
 function App() {
@@ -32,7 +33,8 @@ function App() {
         {/* Autenticação */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        
+        <Route path="/reset-password" element={<ResetPassword />} />
+
         {/* Dashboards */}
         <Route path="/cliente/dashboard" element={<DashboardCliente />} />
         <Route path="/admin/dashboard" element={<DashboardAdmin />} />

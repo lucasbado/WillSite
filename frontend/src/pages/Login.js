@@ -7,10 +7,16 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [resetMode, setResetMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+    setMessage('');
     try {
       const response = await api.post('/auth/login', { email, password });
       sessionStorage.setItem('token', response.data.access_token);
@@ -24,6 +30,22 @@ const Login = () => {
       }
     } catch (err) {
       setError('E-mail ou senha incorretos. Tente novamente.');
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const response = await api.post('/auth/forgot-password', { email: resetEmail });
+      setMessage(response.data.msg);
+      setResetMode(false);
+    } catch (err) {
+      setError(err.response?.data?.msg || 'Erro ao processar solicitação.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,44 +96,94 @@ const Login = () => {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
-                <input
-                  type="email"
-                  placeholder="exemplo@sgat.com"
-                  className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+          {message && (
+            <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-3 animate-in fade-in zoom-in duration-300">
+              <ShieldCheck size={18} /> {message}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sua Senha</label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+          {!resetMode ? (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <input
+                    type="email"
+                    placeholder="exemplo@sgat.com"
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-xl shadow-blue-100 active:scale-95 mt-8"
-            >
-              <LogIn size={22} /> Entrar no Sistema
-            </button>
-          </form>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sua Senha</label>
+                  <button
+                    type="button"
+                    onClick={() => setResetMode(true)}
+                    className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-xl shadow-blue-100 active:scale-95 mt-8"
+              >
+                <LogIn size={22} /> Entrar no Sistema
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail para Recuperação</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <input
+                    type="email"
+                    placeholder="exemplo@sgat.com"
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-xl shadow-blue-100 active:scale-95 mt-8 disabled:opacity-50"
+              >
+                {loading ? 'Processando...' : 'Enviar Link de Recuperação'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setResetMode(false)}
+                className="w-full text-center text-sm font-bold text-slate-400 hover:text-slate-800 transition-all"
+              >
+                Voltar para o login
+              </button>
+            </form>
+          )}
 
           <p className="mt-10 text-center text-sm font-bold text-slate-400">
             Ainda não tem conta? <button onClick={() => navigate('/register')} className="text-blue-600 hover:underline">Cadastre-se aqui</button>

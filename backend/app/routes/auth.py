@@ -1,10 +1,14 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
-from ..models import User, db, WorkOrder, User
+from ..models import User, db, WorkOrder
 from sqlalchemy import func
 from ..utils import enviar_notificacao_status
 import random
+import os
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Message
+from .. import mail
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -275,4 +279,68 @@ def deletar_usuario_admin(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "Erro: Este usuário possui ordens de serviço vinculadas."}), 400
-    
+
+
+# --- RECUPERAÇÃO DE SENHA ---
+
+@auth_bp.route('/forgot-password', methods=['POST'], strict_slashes=False)
+def forgot_password():
+    data = request.get_json()
+    email = data.get('email')
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        # Por segurança, retornamos 200 mesmo se o e-mail não existir
+        # para evitar "email harvesting"
+        return jsonify({"msg": "Se este e-mail estiver cadastrado, um link de recuperação será enviado."}), 200
+
+    # Gera token seguro válido por 1 hora (3600s)
+    s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+    token = s.dumps(user.email, salt='password-reset-salt')
+
+    # URL do frontend (idealmente viria de env var)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    reset_url = f"{frontend_url}/reset-password?token={token}"
+
+    try:
+        msg = Message(
+            "Recuperação de Senha - SGAT",
+            sender=current_app.config.get("MAIL_DEFAULT_SENDER"),
+            recipients=[user.email],
+            body=f"Olá {user.nome_completo},\n\nPara redefinir sua senha, clique no link abaixo:\n{reset_url}\n\nEste link expira em 1 hora.\n\nSe você não solicitou isso, ignore este e-mail."
+        )
+        mail.send(msg)
+        return jsonify({"msg": "Link de recuperação enviado para o seu e-mail."}), 200
+    except Exception as e:
+        print(f"Erro ao enviar e-mail: {e}")
+        return jsonify({"msg": "Erro ao enviar e-mail de recuperação. Tente novamente mais tarde."}), 500
+
+
+@auth_bp.route('/reset-password', methods=['POST'], strict_slashes=False)
+def reset_password():
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('password')
+
+    if not token or not new_password:
+        return jsonify({"msg": "Dados ausentes"}), 400
+
+    s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+    try:
+        # Valida o token e extrai o e-mail
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)
+    except Exception:
+        return jsonify({"msg": "O link de recuperação é inválido ou expirou."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"msg": "Usuário não encontrado."}), 404
+
+    try:
+        user.set_password(new_password)
+        db.session.commit()
+        return jsonify({"msg": "Senha atualizada com sucesso! Faça login novamente."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Erro ao atualizar senha no banco de dados."}), 500
+
