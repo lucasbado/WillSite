@@ -56,15 +56,24 @@ def adicionar_fornecedor():
         return jsonify({"msg": f"Erro ao salvar: {str(e)}"}), 500
 
 
-@vendors_bp.route("/<int:id>", methods=["PUT"])
+@vendors_bp.route("/<int:id>", methods=["PUT", "DELETE"], strict_slashes=False)
 @jwt_required()
-def editar_fornecedor(id):
+def gerenciar_fornecedor(id):
     vendor = Vendor.query.get_or_404(id)
-    data = request.get_json()
 
-    vendor.nome = data.get("nome", vendor.nome)
-    vendor.whatsapp = data.get("whatsapp", vendor.whatsapp)
-    vendor.prazo_entrega = data.get("prazo_entrega", vendor.prazo_entrega)
+    if request.method == "PUT":
+        data = request.get_json()
+        vendor.nome = data.get("nome", vendor.nome)
+        vendor.whatsapp = data.get("whatsapp", vendor.whatsapp)
+        vendor.prazo_entrega = data.get("prazo_entrega", vendor.prazo_entrega)
+        db.session.commit()
+        return jsonify({"msg": "Fornecedor atualizado com sucesso"}), 200
 
-    db.session.commit()
-    return jsonify({"msg": "Fornecedor atualizado com sucesso"}), 200
+    if request.method == "DELETE":
+        try:
+            db.session.delete(vendor)
+            db.session.commit()
+            return jsonify({"msg": "Fornecedor removido com sucesso"}), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"msg": f"Erro ao remover fornecedor: {str(e)}"}), 500

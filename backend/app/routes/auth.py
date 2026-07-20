@@ -4,6 +4,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from ..models import User, db, WorkOrder, User
 from sqlalchemy import func
 from ..utils import enviar_notificacao_status
+import random
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -208,8 +209,51 @@ def listar_todos_usuarios():
         })
     return jsonify(lista), 200
 
+# --- NOVA ROTA: REGISTRAR USUÁRIO PELO ADMIN ---
+@auth_bp.route('/admin/usuarios/registrar', methods=['POST'])
+@jwt_required()
+def registrar_usuario_admin():
+    claims = get_jwt()
+    if claims.get('role') != 'admin':
+        return jsonify({"msg": "Acesso negado"}), 403
+
+    data = request.get_json()
+
+    # Validações básicas
+    if not data.get('email') or not data.get('password') or not data.get('nome_completo') or not data.get('cpf'):
+        return jsonify({"msg": "Campos obrigatórios ausentes"}), 400
+
+    # Verifica se já existe
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"msg": "Este e-mail já está cadastrado"}), 400
+
+    if User.query.filter_by(cpf=data['cpf']).first():
+        return jsonify({"msg": "Este CPF já está cadastrado"}), 400
+
+    try:
+        novo_usuario = User(
+            username=data.get("username", data.get("nome_completo").split()[0] + str(random.randint(100, 999))),
+            nome_completo=data.get("nome_completo"),
+            email=data.get("email"),
+            cpf=data.get("cpf"),
+            role=data.get("role", "cliente"),
+            telefone=data.get("telefone"),
+            cep=data.get("cep"),
+            endereco=data.get("endereco")
+        )
+        novo_usuario.set_password(data.get("password"))
+
+        db.session.add(novo_usuario)
+        db.session.commit()
+
+        return jsonify({"msg": "Usuário criado com sucesso!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": f"Erro ao criar usuário: {str(e)}"}), 500
+
+
 # --- NOVA ROTA: DELETAR USUÁRIO ---
-@auth_bp.route('/admin/usuarios/<int:user_id>', methods=['DELETE'])
+@auth_bp.route('/admin/usuarios/<int:user_id>', methods=['DELETE'], strict_slashes=False)
 @jwt_required()
 def deletar_usuario_admin(user_id):
     claims = get_jwt()

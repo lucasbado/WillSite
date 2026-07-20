@@ -35,7 +35,7 @@ def adicionar_modelo():
     return jsonify({"msg": "Modelo cadastrado com sucesso!", "id": novo.id}), 201
 
 
-@devices_bp.route("/remover/<int:id>", methods=["DELETE"])
+@devices_bp.route("/<int:id>", methods=["DELETE"], strict_slashes=False)
 @jwt_required()
 def remover_modelo(id):
     modelo = DeviceModel.query.get_or_404(id)

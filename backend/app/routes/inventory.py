@@ -181,7 +181,7 @@ def editar_item(item_id):
     return jsonify({"msg": "Inventário atualizado com sucesso!"}), 200
 
 
-@inventory_bp.route("/<int:item_id>", methods=["PUT", "DELETE"])
+@inventory_bp.route("/<int:item_id>", methods=["PUT", "DELETE"], strict_slashes=False)
 @jwt_required()
 def gerenciar_item(item_id):
     if not is_admin():

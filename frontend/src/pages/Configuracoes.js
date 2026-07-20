@@ -23,6 +23,7 @@ const Configuracoes = () => {
     const [fornecedores, setFornecedores] = useState([]);
     const [editandoFornecedor, setEditandoFornecedor] = useState(null); // Armazena o objeto do fornecedor selecionado
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [deletingId, setDeletingId] = useState(null); // <-- NOVO ESTADO: para feedback de loading
 
     const [sugestoes, setSugestoes] = useState([]);
 
@@ -100,6 +101,28 @@ const Configuracoes = () => {
         prazo_entrega: ''
     });
 
+    const [novoUsuario, setNovoUsuario] = useState({
+        nome_completo: '',
+        email: '',
+        cpf: '',
+        telefone: '',
+        password: '',
+        role: 'cliente'
+    });
+
+    const handleAdicionarUsuario = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/auth/admin/usuarios/registrar', novoUsuario);
+            setNovoUsuario({ nome_completo: '', email: '', cpf: '', telefone: '', password: '', role: 'cliente' });
+            fetchData();
+            alert("Usuário cadastrado com sucesso!");
+        } catch (err) {
+            console.error("Erro ao cadastrar usuário:", err);
+            alert(err.response?.data?.msg || "Falha no cadastro.");
+        }
+    };
+
     const handleDigitacaoModelo = (valor) => {
         setNovoModelo(valor);
 
@@ -164,11 +187,14 @@ const Configuracoes = () => {
 
     const handleDeletarFornecedor = async (id) => {
         if (window.confirm("Deseja desvincular este fornecedor?")) {
+            setDeletingId(id); // <-- ATIVA O LOADING
             try {
                 await api.delete(`/vendors/${id}`);
                 fetchData(); // Atualiza a lista
             } catch (err) {
                 alert("Erro ao remover fornecedor.");
+            } finally {
+                setDeletingId(null); // <-- DESLIGA O LOADING (no sucesso ou erro)
             }
         }
     };
@@ -226,7 +252,7 @@ const Configuracoes = () => {
     const handleDeletarUsuario = async (id, nome) => {
         if (window.confirm(`Deseja remover o acesso de ${nome}?`)) {
             try {
-                await api.delete(`/auth/admin/usuario/${id}`);
+                await api.delete(`/auth/admin/usuarios/${id}`);
                 fetchData();
             } catch (err) { alert("Erro ao remover usuário."); }
         }
@@ -284,7 +310,7 @@ const Configuracoes = () => {
                             {[
                                 { id: 'modelos', label: 'Hardware', color: 'text-blue-600 dark:text-blue-400' },
                                 { id: 'usuarios', label: 'Usuários', color: 'text-emerald-600 dark:text-emerald-400' },
-                                { id: 'supply', label: 'Supply', color: 'text-amber-600 dark:text-amber-400' }
+                                { id: 'supply', label: 'Vendedores', color: 'text-amber-600 dark:text-amber-400' }
                             ].map((item) => (
                                 <button
                                     key={item.id}
@@ -490,88 +516,177 @@ const Configuracoes = () => {
                 )}
 
                 {tab === 'usuarios' && (
-                    /* --- ABA DE USUÁRIOS --- */
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* LADO ESQUERDO: CADASTRO DE USUÁRIO */}
+                        <div className="lg:col-span-4 space-y-6">
+                            <div className="bg-emerald-600 dark:bg-emerald-900/30 p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden border border-white/5">
+                                <div className="absolute -top-10 -right-10 opacity-10 rotate-12"><Users size={150} /></div>
+                                <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-6">Novo Usuário</h3>
 
-                            {/* Header da Tabela */}
-                            <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 rounded-xl flex items-center justify-center">
-                                        <Users size={20} />
+                                <form onSubmit={handleAdicionarUsuario} className="space-y-4 relative z-10">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-emerald-100 uppercase tracking-widest ml-2">Nome Completo</label>
+                                        <input
+                                            placeholder="Ex: João Silva"
+                                            className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-white font-bold text-white transition-all"
+                                            value={novoUsuario.nome_completo}
+                                            onChange={(e) => setNovoUsuario({ ...novoUsuario, nome_completo: e.target.value })}
+                                            required
+                                        />
                                     </div>
-                                    <h3 className="font-black text-xl text-slate-800 dark:text-white tracking-tighter uppercase italic">User Management</h3>
-                                </div>
 
-                                <div className="relative w-full md:w-80">
-                                    <Search className="absolute left-4 top-3.5 text-slate-300 dark:text-slate-600" size={18} />
-                                    <input
-                                        placeholder="Buscar usuário..."
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-transparent dark:border-slate-800 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                                        value={filtro}
-                                        onChange={e => setFiltro(e.target.value)}
-                                    />
-                                </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-emerald-100 uppercase tracking-widest ml-2">E-mail</label>
+                                        <input
+                                            type="email"
+                                            placeholder="joao@email.com"
+                                            className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-white font-bold text-white transition-all"
+                                            value={novoUsuario.email}
+                                            onChange={(e) => setNovoUsuario({ ...novoUsuario, email: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-emerald-100 uppercase tracking-widest ml-2">CPF</label>
+                                            <IMaskInput
+                                                mask="000.000.000-00"
+                                                className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-white font-bold text-white transition-all"
+                                                value={novoUsuario.cpf}
+                                                unmask={true}
+                                                onAccept={(value) => setNovoUsuario({ ...novoUsuario, cpf: value })}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-emerald-100 uppercase tracking-widest ml-2">Cargo</label>
+                                            <select
+                                                className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-white font-bold text-white transition-all appearance-none"
+                                                value={novoUsuario.role}
+                                                onChange={(e) => setNovoUsuario({ ...novoUsuario, role: e.target.value })}
+                                            >
+                                                <option value="cliente" className="text-slate-900">Cliente</option>
+                                                <option value="tecnico" className="text-slate-900">Técnico</option>
+                                                <option value="admin" className="text-slate-900">Administrador</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-emerald-100 uppercase tracking-widest ml-2">WhatsApp</label>
+                                        <IMaskInput
+                                            mask="(00) 00000-0000"
+                                            className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-white font-bold text-white transition-all"
+                                            value={novoUsuario.telefone}
+                                            unmask={true}
+                                            onAccept={(value) => setNovoUsuario({ ...novoUsuario, telefone: value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-emerald-100 uppercase tracking-widest ml-2">Senha Inicial</label>
+                                        <input
+                                            type="password"
+                                            placeholder="••••••••"
+                                            className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-white font-bold text-white transition-all"
+                                            value={novoUsuario.password}
+                                            onChange={(e) => setNovoUsuario({ ...novoUsuario, password: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <button type="submit" className="w-full bg-white text-emerald-600 py-5 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl hover:scale-[1.02] active:scale-95 mt-4">
+                                        Cadastrar Usuário
+                                    </button>
+                                </form>
                             </div>
+                        </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse">
-                                    <thead>
-                                        <tr className="text-left bg-slate-50/50 dark:bg-slate-950/50">
-                                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Usuário</th>
-                                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Contato</th>
-                                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Permissão</th>
-                                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {usuarios.filter(u => u.nome_completo.toLowerCase().includes(filtro.toLowerCase())).map(u => (
-                                            /* AQUI O HOVER ESMERALDA DINÂMICO */
-                                            <tr key={u.id} className="hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-all group">
-                                                <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-4">
-                                                        {/* O Avatar muda de cor no hover da linha (group-hover) */}
-                                                        <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center font-black text-slate-400 dark:text-slate-500 uppercase group-hover:bg-white dark:group-hover:bg-slate-700 group-hover:text-emerald-500 transition-all duration-300 tracking-tighter">
-                                                            {u.nome_completo.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-black text-slate-800 dark:text-slate-200 text-lg leading-none mb-1 uppercase tracking-tighter group-hover:translate-x-1 transition-transform">
-                                                                {u.nome_completo}
-                                                            </p>
-                                                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1 uppercase tracking-widest">
-                                                                CPF: {u.cpf}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6 text-center">
-                                                    <div className="inline-flex flex-col items-center">
-                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1"> {u.email}</span>
-                                                        <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase mt-1">{u.telefone || 'N/I'}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6 text-center">
-                                                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors ${u.role === 'admin'
-                                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40'
-                                                        }`}>
-                                                        {u.role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-6 text-right">
-                                                    {u.role !== 'admin' && (
-                                                        <button
-                                                            onClick={() => handleDeletarUsuario(u.id, u.nome_completo)}
-                                                            className="bg-red-50 dark:bg-red-900/20 text-red-500 p-4 rounded-2xl hover:bg-red-500 dark:hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
-                                                        >
-                                                            <UserMinus size={20} />
-                                                        </button>
-                                                    )}
-                                                </td>
+                        {/* LADO DIREITO: LISTAGEM DE USUÁRIOS */}
+                        <div className="lg:col-span-8 animate-in fade-in duration-500">
+                            <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+
+                                {/* Header da Tabela */}
+                                <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 rounded-xl flex items-center justify-center">
+                                            <Users size={20} />
+                                        </div>
+                                        <h3 className="font-black text-xl text-slate-800 dark:text-white tracking-tighter uppercase italic">User Management</h3>
+                                    </div>
+
+                                    <div className="relative w-full md:w-80">
+                                        <Search className="absolute left-4 top-3.5 text-slate-300 dark:text-slate-600" size={18} />
+                                        <input
+                                            placeholder="Buscar usuário..."
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-transparent dark:border-slate-800 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                            value={filtro}
+                                            onChange={e => setFiltro(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="text-left bg-slate-50/50 dark:bg-slate-950/50">
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Usuário</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Contato</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Permissão</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Ação</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {usuarios.filter(u => u.nome_completo.toLowerCase().includes(filtro.toLowerCase())).map(u => (
+                                                /* AQUI O HOVER ESMERALDA DINÂMICO */
+                                                <tr key={u.id} className="hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-all group">
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex items-center gap-4">
+                                                            {/* O Avatar muda de cor no hover da linha (group-hover) */}
+                                                            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center font-black text-slate-400 dark:text-slate-500 uppercase group-hover:bg-white dark:group-hover:bg-slate-700 group-hover:text-emerald-500 transition-all duration-300 tracking-tighter">
+                                                                {u.nome_completo.charAt(0)}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-black text-slate-800 dark:text-slate-200 text-lg leading-none mb-1 uppercase tracking-tighter group-hover:translate-x-1 transition-transform">
+                                                                    {u.nome_completo}
+                                                                </p>
+                                                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1 uppercase tracking-widest">
+                                                                    CPF: {u.cpf}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <div className="inline-flex flex-col items-center">
+                                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1"> {u.email}</span>
+                                                            <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase mt-1">{u.telefone || 'N/I'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors ${u.role === 'admin'
+                                                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40'
+                                                            }`}>
+                                                            {u.role}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        {u.role !== 'admin' && (
+                                                            <button
+                                                                onClick={() => handleDeletarUsuario(u.id, u.nome_completo)}
+                                                                className="bg-red-50 dark:bg-red-900/20 text-red-500 p-4 rounded-2xl hover:bg-red-500 dark:hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
+                                                            >
+                                                                <UserMinus size={20} />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -734,9 +849,15 @@ const Configuracoes = () => {
 
                                             <button
                                                 onClick={() => handleDeletarFornecedor(f.id)}
-                                                className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 rounded-2xl transition-all active:scale-90"
+                                                disabled={deletingId === f.id} // <-- Desabilita durante a ação
+                                                className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 rounded-2xl transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                <Trash2 size={18} />
+                                                {deletingId === f.id ? (
+                                                    // Ícone de loading simples
+                                                    <div className="w-[18px] h-[18px] border-2 border-red-500/50 border-t-red-500 rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <Trash2 size={18} />
+                                                )}
                                             </button>
                                         </div>
                                     </div>
@@ -792,7 +913,7 @@ const Configuracoes = () => {
                                         placeholderChar="_"
                                         className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-amber-400 font-bold text-white transition-all"
 
-                                        value={novoFornecedor.whatsapp}
+                                        value={editandoFornecedor.whatsapp}
                                         unmask={true}
 
                                         // FORÇA O IMASK A ACEITAR O PRIMEIRO DÍGITO IMEDIATAMENTE
@@ -804,7 +925,7 @@ const Configuracoes = () => {
                                             return dynamicMasked.compiledMasks[1]; // Máscara de 9 dígitos (padrão)
                                         }}
 
-                                        onAccept={(value) => setNovoFornecedor({ ...novoFornecedor, whatsapp: value })}
+                                        onAccept={(value) => setEditandoFornecedor({ ...editandoFornecedor, whatsapp: value })}
 
                                         // BLINDAGEM MOBILE
                                         inputMode="tel"
