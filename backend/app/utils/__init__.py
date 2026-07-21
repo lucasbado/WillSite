@@ -161,8 +161,14 @@ def enviar_email_verificacao(user, token):
     </html>
     """
 
-    app = current_app._get_current_object()
-    Thread(target=send_async_email, args=(app, msg)).start()
+    # PARA TESTE: Envio síncrono (sem Thread) para forçar o erro aparecer nos logs/tela
+    from .. import mail
+    try:
+        mail.send(msg)
+        print(f"SGAT DEBUG: E-mail enviado com SUCESSO para {user.email}")
+    except Exception as e:
+        print(f"SGAT DEBUG ERROR: Falha ao enviar e-mail síncrono: {str(e)}")
+        raise e # Força o erro 500 para vermos a mensagem técnica
 
 
 def gerar_link_whatsapp(telefone, nome_cliente, os_id, modelo, status, laudo=None):
