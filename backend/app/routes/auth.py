@@ -19,6 +19,9 @@ def login():
     user = User.query.filter_by(email=data.get("email")).first()
 
     if user and check_password_hash(user.password_hash, data.get("password")):
+        if not user.is_verified:
+            return jsonify({"msg": "Sua conta ainda não foi verificada. Por favor, verifique seu e-mail para ativar seu acesso."}), 403
+
         # Adicionamos o "role" no identity para facilitar no Front-end e Chatbot
         access_token = create_access_token(
             identity=str(user.id), additional_claims={"role": user.role}
@@ -171,6 +174,13 @@ def verificar_cpf(cpf):
 def register():
     data = request.get_json()
 
+    # Verifica se já existe
+    if User.query.filter_by(email=data.get('email')).first():
+        return jsonify({"msg": "Este e-mail já está cadastrado"}), 400
+
+    if User.query.filter_by(cpf=data.get('cpf')).first():
+        return jsonify({"msg": "Este CPF já está cadastrado"}), 400
+
     # Verifique se os nomes batem com o models.py
     novo_usuario = User(
         username=data.get("username"),  # Em vez de 'name'
@@ -181,13 +191,33 @@ def register():
         endereco=data.get("endereco"),
         role="cliente",
         telefone=data.get("telefone"),
+        is_verified=False
     )
     novo_usuario.set_password(data.get("password"))
 
-    db.session.add(novo_usuario)
-    db.session.commit()
+    try:
+        db.session.add(novo_usuario)
+        db.session.commit()
 
-    return jsonify({"msg": "Usuário criado!"}), 201
+        # Envia e-mail de verificação
+        s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+        token = s.dumps(novo_usuario.email, salt='email-confirm-salt')
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verify_url = f"{frontend_url}/verify-email?token={token}"
+
+        msg = Message(
+            "Verificação de E-mail - SGAT",
+            sender=current_app.config.get("MAIL_DEFAULT_SENDER"),
+            recipients=[novo_usuario.email],
+            body=f"Olá {novo_usuario.nome_completo},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas."
+        )
+        mail.send(msg)
+
+        return jsonify({"msg": "Usuário criado! Verifique seu e-mail para ativar a conta."}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": f"Erro ao registrar: {str(e)}"}), 500
 
 
 # --- NOVA ROTA: LISTAR TODOS OS USUÁRIOS (Para o User Management) ---
@@ -250,7 +280,22 @@ def registrar_usuario_admin():
         db.session.add(novo_usuario)
         db.session.commit()
 
-        return jsonify({"msg": "Usuário criado com sucesso!"}), 201
+        # Envia e-mail de verificação (mesmo para admin, por segurança)
+        s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+        token = s.dumps(novo_usuario.email, salt='email-confirm-salt')
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verify_url = f"{frontend_url}/verify-email?token={token}"
+
+        msg = Message(
+            "Ativação de Conta - SGAT",
+            sender=current_app.config.get("MAIL_DEFAULT_SENDER"),
+            recipients=[novo_usuario.email],
+            body=f"Olá {novo_usuario.nome_completo},\n\nUma conta foi criada para você no SGAT pelo administrador. Para ativar seu acesso, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas."
+        )
+        mail.send(msg)
+
+        return jsonify({"msg": "Usuário criado e convite enviado por e-mail!"}), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": f"Erro ao criar usuário: {str(e)}"}), 500
@@ -343,4 +388,35 @@ def reset_password():
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "Erro ao atualizar senha no banco de dados."}), 500
+
+
+@auth_bp.route('/verify-email', methods=['POST'], strict_slashes=False)
+def verify_email():
+    data = request.get_json()
+    token = data.get('token')
+
+    if not token:
+        return jsonify({"msg": "Token ausente"}), 400
+
+    s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+    try:
+        # Valida o token e extrai o e-mail (validade de 24 horas)
+        email = s.loads(token, salt='email-confirm-salt', max_age=86400)
+    except Exception:
+        return jsonify({"msg": "O link de verificação é inválido ou expirou."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"msg": "Usuário não encontrado."}), 404
+
+    if user.is_verified:
+        return jsonify({"msg": "Este e-mail já foi verificado."}), 200
+
+    try:
+        user.is_verified = True
+        db.session.commit()
+        return jsonify({"msg": "E-mail verificado com sucesso! Sua conta está ativa."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Erro ao ativar conta."}), 500
 

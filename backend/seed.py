@@ -26,7 +26,7 @@ def run_seed():
             if not User.query.filter_by(email="admin@sgat.com").first():
                 admin = User(
                     username="admin",
-                    nome_completo="Lucas Admin",
+                    nome_completo="Will",
                     email="admin@sgat.com",
                     cpf=('00'),
                     cep=('00'),

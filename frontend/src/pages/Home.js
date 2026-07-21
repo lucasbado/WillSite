@@ -88,7 +88,7 @@ const Home = () => {
                         </div>
                         <div className="flex flex-col leading-none">
                             <span className="text-xl font-black tracking-tighter uppercase dark:text-white">
-                                SGAT<span className="text-blue-600 dark:text-blue-400">.</span>
+                                Cidinho<span className="text-blue-600 dark:text-blue-400">.</span>
                             </span>
                             <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">Systems Analyst</span>
                         </div>
@@ -121,7 +121,7 @@ const Home = () => {
                             </div>
 
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] text-center mt-4">
-                                SGAT // Terminal_Mobile_v1.0
+                                Cidinho // Terminal_Mobile_v1.0
                             </p>
                         </div>
                     )}
@@ -213,7 +213,7 @@ const Home = () => {
                                                 <Smartphone size={100} className="text-blue-600 dark:text-blue-500 mb-6 group-hover:scale-110 transition-transform" strokeWidth={2.5} />
                                                 <Zap size={30} className="absolute -top-2 -right-2 text-amber-500 animate-pulse" fill="currentColor" />
                                             </div>
-                                            <h4 className="font-black text-2xl text-slate-900 dark:text-white uppercase tracking-tighter italic">SGAT Dashboard</h4>
+                                            <h4 className="font-black text-2xl text-slate-900 dark:text-white uppercase tracking-tighter italic">Cidinho Dashboard</h4>
                                             <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.3em] mt-3">Live Reparo // Status_01</p>
                                         </div>
                                     </div>
@@ -365,7 +365,7 @@ const Home = () => {
 
                                         <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
                                             <div className="flex items-center gap-3 text-emerald-500 text-xs font-black uppercase tracking-widest">
-                                                <ShieldCheck size={16} /> Peças Homologadas // SGAT Supply Chain
+                                                <ShieldCheck size={16} /> Peças Homologadas // Cidinho Supply Chain
                                             </div>
                                             <div className="flex items-center gap-3 text-amber-500 text-xs font-black uppercase tracking-widest">
                                                 <Zap size={16} fill="currentColor" /> Reparo Express // Lead_Time: 2H-24H
@@ -449,7 +449,7 @@ const Home = () => {
                                 É engenharia.
                             </h2>
                             <p className="text-xl md:text-2xl text-slate-500 dark:text-slate-400 max-w-3xl font-medium italic leading-relaxed">
-                                Na SGAT, tratamos cada dispositivo como um ecossistema. Unimos a precisão da **Análise de Sistemas** com a delicadeza da microeletrônica para entregar performance, não apenas conserto.
+                                Na Cidinho, tratamos cada dispositivo como um ecossistema. Unimos a precisão da **Análise de Sistemas** com a delicadeza da microeletrônica para entregar performance, não apenas conserto.
                             </p>
                         </div>
 
@@ -462,7 +462,7 @@ const Home = () => {
                                 <div className="relative z-10">
                                     <h4 className="text-3xl font-black uppercase italic mb-6">Visão de Analista</h4>
                                     <p className="text-slate-300 dark:text-blue-100 text-lg leading-relaxed max-w-xl italic">
-                                        Fundada por Lucas, Systems Analyst, a SGAT aplica metodologias de **debug de software** no diagnóstico de hardware. Isso significa que identificamos a causa raiz, evitando que o problema retorne.
+                                        Fundada por Lucas, Systems Analyst, a Cidinho aplica metodologias de **debug de software** no diagnóstico de hardware. Isso significa que identificamos a causa raiz, evitando que o problema retorne.
                                     </p>
                                 </div>
                             </div>
@@ -511,7 +511,7 @@ const Home = () => {
                                     Pronto para o próximo <br /> <span className="text-blue-500">nível de suporte?</span>
                                 </h3>
                                 <p className="text-slate-400 max-w-xl mx-auto mb-12 font-medium italic">
-                                    Crie sua conta no SGAT e experimente a transparência de acompanhar seu reparo em tempo real, com laudos técnicos direto no seu dashboard.
+                                    Crie sua conta na Cidinho e experimente a transparência de acompanhar seu reparo em tempo real, com laudos técnicos direto no seu dashboard.
                                 </p>
                                 <button
                                     onClick={() => navigate('/register')}
@@ -540,11 +540,11 @@ const Home = () => {
                                     <Cpu size={16} />
                                 </div>
                                 <span className="text-lg font-black tracking-tighter uppercase dark:text-white">
-                                    SGAT<span className="text-blue-600">.</span>
+                                    Cidinho<span className="text-blue-600">.</span>
                                 </span>
                             </div>
                             <p className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.5em]">
-                                © 2026 SGAT • DESENVOLVIDO POR LUCAS
+                                © 2026 Cidinho • DESENVOLVIDO POR LUCAS
                             </p>
                         </div>
 

@@ -742,7 +742,7 @@ const DashboardAdmin = () => {
 
             const opt = {
                 margin: 10,
-                filename: `SGAT_OS_${selectedOS.id}.pdf`,
+                filename: `Cidinho_OS_${selectedOS.id}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 3, useCORS: true, letterRendering: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -811,7 +811,7 @@ const DashboardAdmin = () => {
 
                         <div className="flex flex-col items-center leading-none">
                             <span className="text-2xl font-black text-white tracking-tighter uppercase italic">
-                                SGAT<span className="text-blue-500">.</span>
+                                Cidinho<span className="text-blue-500">.</span>
                             </span>
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">
                                 Sincronizando Nodes
@@ -860,7 +860,7 @@ const DashboardAdmin = () => {
                             <Cpu size={28} strokeWidth={2.5} />
                         </div>
                         <div className="flex flex-col leading-none">
-                            <span className="text-2xl font-black tracking-tighter uppercase italic">SGAT<span className="text-blue-500">.</span></span>
+                            <span className="text-2xl font-black tracking-tighter uppercase italic">Cidinho<span className="text-blue-500">.</span></span>
                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">Command Center</span>
                         </div>
                     </div>
@@ -1612,7 +1612,7 @@ const DashboardAdmin = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '4px solid #0f172a', paddingBottom: '20px', marginBottom: '30px' }}>
                                 <div>
                                     <h3 style={{ fontSize: '24px', fontWeight: '900', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>
-                                        SGAT <span style={{ color: '#2563eb' }}>.</span>
+                                        Cidinho <span style={{ color: '#2563eb' }}>.</span>
                                     </h3>
                                     <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>
                                         Relatório Técnico de Saída

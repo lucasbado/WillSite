@@ -53,7 +53,7 @@ const DashboardFinanceiro = () => {
             setStats(resStats.data);
             setEstoque(resEstoque.data);
         } catch (err) {
-            console.error("Erro ao carregar métricas SGAT:", err);
+            console.error("Erro ao carregar métricas Cidinho:", err);
         } finally {
             setLoading(false);
         }
@@ -90,7 +90,7 @@ const DashboardFinanceiro = () => {
                                 Financial<span className="text-blue-600 dark:text-blue-500">Analytics</span>
                             </h2>
                             <p className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mt-1.5 md:mt-2">
-                                SGAT / Profit & Loss Management
+                                Cidinho / Profit & Loss Management
                             </p>
                         </div>
                     </div>

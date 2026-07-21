@@ -91,7 +91,7 @@ const DetalhesCliente = () => {
                                 <div className="animate-in fade-in zoom-in duration-700">
                                     <span className="inline-flex items-center gap-2 bg-blue-600 dark:bg-blue-500 text-white text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-[0.2em] mb-8 lg:mb-10 shadow-xl shadow-blue-900/20 dark:shadow-none border border-blue-400/30">
                                         <Award size={14} className="text-yellow-400" strokeWidth={3} />
-                                        Cliente VIP SGAT
+                                        Cliente VIP Cidinho
                                     </span>
                                 </div>
                             );
@@ -295,11 +295,11 @@ const DetalhesCliente = () => {
 
 
 
-                    {/* --- ÁREA DE IMPRESSÃO (SGAT TECHNICAL STANDARD) --- */}
+                    {/* --- ÁREA DE IMPRESSÃO (Cidinho TECHNICAL STANDARD) --- */}
                     <div id="print-area-wrapper" className="hidden print:block bg-white text-slate-900 p-12">
                         <div className="flex justify-between items-start mb-12 border-b-8 border-slate-900 pb-8">
                             <div>
-                                <h3 className="text-4xl font-black tracking-tighter uppercase leading-none italic">SGAT - Assistência Técnica</h3>
+                                <h3 className="text-4xl font-black tracking-tighter uppercase leading-none italic">Cidinho - Assistência Técnica</h3>
                                 <p className="text-slate-600 font-bold uppercase text-sm tracking-[0.3em] mt-3">Recibo de Prestação de Serviços Técnicos</p>
                             </div>
                             <div className="text-right">
@@ -410,7 +410,7 @@ const DetalhesCliente = () => {
 
                             <div className="flex flex-col items-center gap-1">
                                 <p className="text-[7px] font-black uppercase text-slate-300 tracking-[0.4em] italic leading-none">
-                                    SGAT Technical Solutions
+                                    Cidinho Technical Solutions
                                 </p>
                                 <div className="flex items-center gap-4 mt-1">
                                     <span className="text-[7px] font-black text-slate-200 uppercase tracking-widest">Command Center São Paulo, SP</span>

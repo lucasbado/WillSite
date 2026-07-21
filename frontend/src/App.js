@@ -20,6 +20,7 @@ import VisualizacaoRecibo from './pages/VisualizacaoRecibo';
 import DashboardFinanceiro from './pages/DashboardFinanceiro';
 import ScannerEntrega from './pages/ScannerEntrega';
 import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* Dashboards */}
         <Route path="/cliente/dashboard" element={<DashboardCliente />} />

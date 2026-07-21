@@ -153,7 +153,7 @@ const ConfiguracoesPerfil = () => {
                             {/* Grid de Contato: Empilha no mobile, 2 colunas no desktop */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 group">
-                                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1 tracking-widest">E-mail Corporativo</label>
+                                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1 tracking-widest">Seu Email</label>
                                     <div className="relative">
                                         <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700 group-focus-within:text-blue-500 transition-colors" size={20} />
                                         <input
@@ -237,7 +237,7 @@ const ConfiguracoesPerfil = () => {
                                         Protocolo de Notificação
                                     </p>
                                     <p className="text-[9px] md:text-[11px] text-amber-800/70 dark:text-amber-200/60 font-medium leading-relaxed uppercase tracking-tight">
-                                        Mantenha seu telefone atualizado! É através dele que o sistema SGAT notifica a conclusão dos seus reparos em tempo real.
+                                        Mantenha seu telefone atualizado! É através dele que o sistema Cidinho notifica a conclusão dos seus reparos em tempo real.
                                     </p>
                                 </div>
                             </div>
@@ -284,7 +284,7 @@ const ConfiguracoesPerfil = () => {
                             {formData.nome_completo || "Usuário"}
                         </h3>
                         <p className="text-blue-500 font-black text-[10px] uppercase tracking-[0.4em] mb-10 flex items-center gap-2">
-                            <ShieldCheck size={14} /> Cliente Verificado SGAT
+                            <ShieldCheck size={14} /> Cliente Verificado Cidinho
                         </p>
 
                         <div className="w-full space-y-5 pt-10 border-t border-white/10">

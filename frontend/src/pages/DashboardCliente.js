@@ -168,7 +168,7 @@ const DashboardCliente = () => {
                             <Cpu size={22} strokeWidth={2.5} />
                         </div>
                         <span className="text-xl font-black tracking-tighter text-slate-800 dark:text-slate-50 uppercase">
-                            SGAT<span className="text-blue-600 dark:text-blue-500">.</span>
+                            Cidinho<span className="text-blue-600 dark:text-blue-500">.</span>
                         </span>
                     </div>
 
@@ -376,7 +376,7 @@ const DashboardCliente = () => {
                                     Rápido & <br className="hidden md:block" /> Seguro.
                                 </h3>
                                 <p className="hidden md:block text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mt-4 italic">
-                                    SGAT Technical Support
+                                    Cidinho Technical Support
                                 </p>
                             </div>
 
@@ -466,7 +466,7 @@ const DashboardCliente = () => {
                                                 {/* Footer do Dropdown */}
                                                 <div className="bg-slate-50 dark:bg-slate-950 px-6 py-3 border-t border-slate-100 dark:border-slate-800">
                                                     <p className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">
-                                                        Database SGAT v2.6.3
+                                                        Database Cidinho v2.6.3
                                                     </p>
                                                 </div>
                                             </div>

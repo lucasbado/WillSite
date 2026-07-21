@@ -82,9 +82,9 @@ const Configuracoes = () => {
         // Pegamos a hora atual para o cabeçalho
         const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-        let mensagem = `🚀 *SGAT // SOLICITAÇÃO DE COTAÇÃO* %0A`;
+        let mensagem = `🚀 *Cidinho // SOLICITAÇÃO DE COTAÇÃO* %0A`;
         mensagem += `_Ref: Protocolo_Supply_${timestamp}_ %0A%0A`;
-        mensagem += `Olá *${VendedorNome}*, aqui é o Lucas da SGAT. %0A`;
+        mensagem += `Olá *${VendedorNome}*, aqui é o Lucas da Cidinho. %0A`;
         mensagem += `Gostaria de cotar os seguintes itens para reposição: %0A`;
 
         itensParaRepor.forEach(item => {

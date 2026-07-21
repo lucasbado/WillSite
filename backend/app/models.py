@@ -15,6 +15,7 @@ class User(db.Model):
     cep = db.Column(db.String(9))
     endereco = db.Column(db.String(255))
     telefone = db.Column(db.String(20), nullable=True)
+    is_verified = db.Column(db.Boolean, default=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

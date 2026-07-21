@@ -33,8 +33,8 @@ const GestaoEstoque = () => {
         preco_venda: 0.00  // Valor padrão fixo
     });
 
-    const categoriasSgat = ["Hardware", "Acessório", "Insumo", "Software", "Outros"];
-    const marcasSgat = ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Realme', 'Outras'];
+    const categoriasCidinho = ["Hardware", "Acessório", "Insumo", "Software", "Outros"];
+    const marcasCidinho = ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Realme', 'Outras'];
 
     // Lógica de Ícones Inteligentes (Versão 1)
     const getIconByPeca = (nome) => {
@@ -53,7 +53,7 @@ const GestaoEstoque = () => {
             ]);
             setEstoque(resEstoque.data);
             setListaModelos(resModelos.data);
-        } catch (err) { console.error("Erro SGAT:", err); }
+        } catch (err) { console.error("Erro Cidinho:", err); }
     };
 
     useEffect(() => { carregarDados(); }, []);
@@ -170,7 +170,7 @@ const GestaoEstoque = () => {
                         </button>
                         <div>
                             <h2 className="text-xl md:text-3xl font-black text-slate-800 dark:text-slate-50 tracking-tighter uppercase italic leading-none">
-                                Estoque<span className="text-blue-600 dark:text-blue-500">SGAT</span>
+                                Estoque<span className="text-blue-600 dark:text-blue-500">Cidinho</span>
                             </h2>
                             <p className="hidden md:block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
                                 System Hardware & Inventory
@@ -215,7 +215,7 @@ const GestaoEstoque = () => {
                             <p className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em] italic px-1">Manufacturer / Vendor</p>
                             {/* ADICIONE modern-scroll-h AQUI */}
                             <div className="flex gap-2 overflow-x-auto pb-4 modern-scroll-h snap-x">
-                                {marcasSgat.map(m => (
+                                {marcasCidinho.map(m => (
                                     <button
                                         key={m}
                                         onClick={() => setFiltroMarca(filtroMarca === m ? 'Todas' : m)}
@@ -232,7 +232,7 @@ const GestaoEstoque = () => {
 
                         {/* 3. SELETOR DE CATEGORIA (Módulos) */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {categoriasSgat.map(c => (
+                            {categoriasCidinho.map(c => (
                                 <button
                                     key={c}
                                     onClick={() => setFiltroCategoria(filtroCategoria === c ? 'Todas' : c)}
@@ -468,7 +468,7 @@ const GestaoEstoque = () => {
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Categoria</label>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                        {categoriasSgat.map(cat => (
+                                        {categoriasCidinho.map(cat => (
                                             <button
                                                 key={cat} type="button"
                                                 onClick={() => setFormData({ ...formData, categoria: cat })}

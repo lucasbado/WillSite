@@ -49,7 +49,7 @@ const ListaClientes = () => {
                             <h2 className="text-4xl font-black text-slate-800 dark:text-slate-50 tracking-tighter uppercase italic leading-none">
                                 Base de Clientes
                             </h2>
-                            <p className="text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] mt-2">Database Index SGAT</p>
+                            <p className="text-[10px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-[0.3em] mt-2">Database Index Cidinho</p>
                         </div>
                     </div>
 

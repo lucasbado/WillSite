@@ -11,7 +11,6 @@ from flask_mail import Mail
 from sqlalchemy import text
 
 load_dotenv()
-load_dotenv()
 
 
 # Inicializamos os objetos das extensões
@@ -24,9 +23,17 @@ mail = Mail()  # Instância global
 def ensure_work_orders_columns(app):
     with app.app_context():
         try:
+            # 1. Garante que o schema 'public' existe (importante para Neon/Postgres resetados)
+            with db.engine.connect() as conn:
+                conn.execute(text("CREATE SCHEMA IF NOT EXISTS public;"))
+                conn.commit()
+
+            # 2. Garante a criação de todas as tabelas definidas nos models
+            db.create_all()
             engine = db.engine
-        except AttributeError:
-            engine = db.get_engine()
+        except Exception as e:
+            print(f"Erro ao acessar o motor do banco: {e}")
+            return
 
         if engine.dialect.name == "postgresql":
             required_columns = {
@@ -38,6 +45,7 @@ def ensure_work_orders_columns(app):
 
             with engine.connect() as conn:
                 for column_name, column_type in required_columns.items():
+                    # Verificação robusta de existência de coluna no Postgres
                     exists = conn.execute(
                         text(
                             "SELECT 1 FROM information_schema.columns "
@@ -98,6 +106,9 @@ def create_app():
     migrate.init_app(app, db)
     jwt.init_app(app)
     mail.init_app(app)  # Conecta o mail ao app aqui
+
+    # Importação dos models para o create_all enxergar
+    from . import models
 
     # Registro de Blueprints
     from .routes.auth import auth_bp

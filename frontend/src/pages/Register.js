@@ -1,12 +1,35 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    UserPlus, MapPin, CreditCard, Mail, Lock,
-    User, Phone, Info, ShieldAlert, ArrowLeft, Cpu, CheckCircle2
+    UserPlus, MapPin, User, Info, ShieldAlert, ArrowLeft, Cpu, CheckCircle2,
+    AtSign, Activity
 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import api from './api';
-import axios from 'axios';
+
+// COMPONENTE AUXILIAR (Fora do Register para evitar perda de foco no re-render)
+const InputGroup = ({ label, icon: Icon, children, error, hint }) => (
+    <div className="space-y-2">
+        <div className="flex justify-between items-center ml-1">
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                {Icon && <Icon size={12} className="text-blue-500" />}
+                {label}
+            </label>
+            {hint && (
+                <div className="group relative">
+                    <Info size={14} className="text-slate-300 hover:text-blue-500 cursor-help transition-colors" />
+                    <div className="absolute bottom-full right-0 mb-2 w-48 p-3 bg-slate-800 text-white text-[10px] font-bold rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[60]">
+                        {hint}
+                    </div>
+                </div>
+            )}
+        </div>
+        <div className="relative">
+            {children}
+        </div>
+        {error && <p className="text-[10px] text-red-500 font-black flex items-center gap-1 uppercase ml-1 animate-pulse"><ShieldAlert size={12} /> {error}</p>}
+    </div>
+);
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -14,6 +37,7 @@ const Register = () => {
         email: '', cpf: '', cep: '', endereco: '', telefone: ''
     });
     const [erroCPF, setErroCPF] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleCEP = async (valorLimpo) => {
@@ -45,19 +69,37 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // VALIDAÇÃO DE FORMATO DE E-MAIL
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            alert("⚠️ Formato de e-mail inválido. Use o padrão: nome@exemplo.com");
+            return;
+        }
+
+        if (erroCPF) {
+            alert("Corrija o CPF antes de prosseguir.");
+            return;
+        }
+        setLoading(true);
         try {
-            await axios.post('http://localhost:5000/api/auth/register', formData);
+            const response = await api.post('/auth/register', formData);
+            alert("✅ " + response.data.msg);
             navigate('/login');
-        } catch (err) { alert(err.response?.data?.msg || "Erro no cadastro."); }
+        } catch (err) {
+            alert("❌ " + (err.response?.data?.msg || "Erro no cadastro."));
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="min-h-screen bg-white flex font-sans overflow-hidden">
+        <div className="min-h-screen bg-slate-50 flex font-sans">
 
             {/* BOTÃO VOLTAR */}
             <button
                 onClick={() => navigate('/')}
-                className="fixed top-8 left-8 flex items-center gap-3 text-slate-400 hover:text-slate-800 font-bold transition-all group z-50"
+                className="fixed top-8 left-8 flex items-center gap-3 text-slate-400 hover:text-slate-800 font-bold transition-all group z-[100]"
             >
                 <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 group-hover:bg-slate-100 transition-all active:scale-95">
                     <ArrowLeft size={24} />
@@ -68,10 +110,12 @@ const Register = () => {
                 </div>
             </button>
 
-            {/* LADO ESQUERDO: FORMULÁRIO (Scrollável) */}
-            <div className="w-full lg:w-[60%] overflow-y-auto h-screen p-8 md:p-20 pt-32 lg:pt-20 animate-in fade-in slide-in-from-left-6 duration-700">
-                <div className="max-w-2xl mx-auto">
-                    <div className="flex items-center gap-3 mb-10">
+            {/* FORMULÁRIO (Scrollável) */}
+            <div className="w-full lg:w-[60%] overflow-y-auto h-screen p-6 md:p-12 lg:p-20 pt-32 lg:pt-20 relative z-20">
+                <div className="max-w-3xl mx-auto">
+
+                    {/* LOGO */}
+                    <div className="flex items-center gap-3 mb-8">
                         <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl">
                             <Cpu size={26} strokeWidth={2.5} />
                         </div>
@@ -82,102 +126,175 @@ const Register = () => {
                     </div>
 
                     <div className="mb-12">
-                        <h2 className="text-5xl font-black text-slate-800 tracking-tighter leading-none mb-4">Crie sua conta.</h2>
-                        <p className="text-slate-400 font-medium text-lg italic">Junte-se à nossa plataforma de gestão técnica.</p>
+                        <h2 className="text-5xl font-black text-slate-800 tracking-tighter leading-none mb-4 uppercase italic">Crie sua conta.</h2>
+                        <p className="text-slate-400 font-medium text-lg italic">Junte-se à nossa plataforma de gestão técnica profissional.</p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-10">
-                        {/* SEÇÃO IDENTIFICAÇÃO */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-2 text-blue-500 font-black text-xs uppercase tracking-[0.2em] mb-4">
-                                <User size={16} /> Identificação Pessoal
+                    <form onSubmit={handleSubmit} className="space-y-8 pb-20 relative z-30">
+
+                        {/* SEÇÃO 01: QUEM É VOCÊ */}
+                        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+                            <div className="flex items-center gap-2 text-blue-600 font-black text-[11px] uppercase tracking-[0.2em] mb-2">
+                                <User size={16} /> Quem é você?
                             </div>
+
+                            <InputGroup label="Nome Completo">
+                                <input
+                                    required
+                                    placeholder="Ex: João da Silva Santos"
+                                    className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                    value={formData.nome_completo}
+                                    onChange={e => setFormData({ ...formData, nome_completo: e.target.value })}
+                                />
+                            </InputGroup>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nome Completo</label>
-                                    <input required className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none" onChange={e => setFormData({ ...formData, nome_completo: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">CPF</label>
+                                <InputGroup label="CPF" error={erroCPF}>
                                     <IMaskInput
                                         mask="000.000.000-00"
-                                        className={`w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 transition-all font-bold outline-none ${erroCPF ? 'focus:border-red-500 text-red-600' : 'focus:border-blue-500 text-slate-700'}`}
+                                        placeholder="000.000.000-00"
+                                        className={`w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 transition-all font-bold outline-none placeholder:text-slate-300 ${erroCPF ? 'border-red-200 text-red-600 focus:border-red-500' : 'focus:border-blue-500 text-slate-700'}`}
+                                        value={formData.cpf}
                                         onAccept={(value) => validarCPFNoBanco(value.replace(/\D/g, ''))}
                                         required
                                     />
-                                    {erroCPF && <p className="text-[10px] text-red-500 font-black mt-1 flex items-center gap-1 uppercase"><ShieldAlert size={12} /> {erroCPF}</p>}
-                                </div>
+                                </InputGroup>
+                                <InputGroup label="E-mail Pessoal">
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="joao@exemplo.com"
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    />
+                                </InputGroup>
                             </div>
                         </div>
 
-                        {/* SEÇÃO ENDEREÇO */}
-                        <div className="space-y-6 pt-6 border-t border-slate-100">
-                            <div className="flex items-center gap-2 text-emerald-500 font-black text-xs uppercase tracking-[0.2em] mb-4">
-                                <MapPin size={16} /> Endereço & Contato
+                        {/* SEÇÃO 02: ONDE TE ENCONTRAMOS */}
+                        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+                            <div className="flex items-center gap-2 text-emerald-600 font-black text-[11px] uppercase tracking-[0.2em] mb-2">
+                                <MapPin size={16} /> Onde te encontramos?
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">CEP</label>
-                                    <IMaskInput mask="00000-000" className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none" onAccept={(value) => handleCEP(value.replace(/\D/g, ''))} required />
-                                </div>
-                                <div className="md:col-span-2 space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Endereço (Rua, Número, Bairro)</label>
-                                    <input required className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none" value={formData.endereco} onChange={e => setFormData({ ...formData, endereco: e.target.value })} />
-                                </div>
-                                <div className="md:col-span-3 space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Celular / WhatsApp</label>
-                                    <IMaskInput mask="(00) 00000-0000" className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-emerald-700 outline-none" onAccept={(value) => setFormData({ ...formData, telefone: value })} required />
-                                </div>
-                                <div className="flex items-start gap-2 bg-amber-50 p-3 rounded-xl border border-amber-100">
-                                    <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                                    <p className="text-[10px] text-amber-700 font-bold leading-tight">
-                                        DICA: Coloque um número alternativo para contato enquanto seu celular estiver no conserto!
-                                    </p>
-                                </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <InputGroup label="CEP">
+                                    <IMaskInput
+                                        mask="00000-000"
+                                        placeholder="00000-000"
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                        value={formData.cep}
+                                        onAccept={(value) => handleCEP(value.replace(/\D/g, ''))}
+                                        required
+                                    />
+                                </InputGroup>
+                                <InputGroup label="WhatsApp / Celular" hint="Número principal para notificações de status.">
+                                    <IMaskInput
+                                        mask="(00) 00000-0000"
+                                        placeholder="(00) 00000-0000"
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-emerald-700 outline-none placeholder:text-slate-300"
+                                        value={formData.telefone}
+                                        onAccept={(value) => setFormData({ ...formData, telefone: value })}
+                                        required
+                                    />
+                                </InputGroup>
+                            </div>
+
+                            <InputGroup label="Endereço Completo">
+                                <input
+                                    required
+                                    placeholder="Rua, Número, Bairro, Cidade - UF"
+                                    className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                    value={formData.endereco}
+                                    onChange={e => setFormData({ ...formData, endereco: e.target.value })}
+                                />
+                            </InputGroup>
+                        </div>
+
+                        {/* SEÇÃO 03: SEGURANÇA */}
+                        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+                            <div className="flex items-center gap-2 text-purple-600 font-black text-[11px] uppercase tracking-[0.2em] mb-2">
+                                <ShieldAlert size={16} /> Segurança do Acesso
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <InputGroup label="Nome de Usuário" hint="Como você quer ser chamado no sistema.">
+                                    <input
+                                        required
+                                        placeholder="Ex: joaosilva"
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                        value={formData.username}
+                                        onChange={e => setFormData({ ...formData, username: e.target.value })}
+                                    />
+                                </InputGroup>
+                                <InputGroup label="Sua Senha">
+                                    <input
+                                        required
+                                        type="password"
+                                        placeholder="••••••••"
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                                        value={formData.password}
+                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                    />
+                                </InputGroup>
                             </div>
                         </div>
 
-                        {/* SEÇÃO LOGIN */}
-                        <div className="space-y-6 pt-6 border-t border-slate-100">
-                            <div className="flex items-center gap-2 text-purple-500 font-black text-xs uppercase tracking-[0.2em] mb-4">
-                                <Lock size={16} /> Credenciais de Acesso
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
-                                <input required placeholder="E-mail" type="email" className="w-full bg-slate-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none" onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input required placeholder="Usuário" className="w-full bg-slate-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none" onChange={e => setFormData({ ...formData, username: e.target.value })} />
-                                    <div className="flex items-start gap-2 bg-amber-50 p-3 rounded-xl border border-amber-100">
-                                        <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                                        <p className="text-[10px] text-amber-700 font-bold leading-tight">
-                                            DICA: Usuario é como o "apelido" que o sistema vai usar para te reconhecer. Pode ser seu nome, ou algo criativo!
-                                        </p>
-                                    </div>
-                                    <input required placeholder="Senha" type="password" className="w-full bg-slate-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl p-4 transition-all font-bold text-slate-700 outline-none" onChange={e => setFormData({ ...formData, password: e.target.value })} />
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-blue-600 transition shadow-2xl shadow-blue-100 active:scale-95 uppercase flex items-center justify-center gap-3">
-                            <UserPlus size={24} /> Criar minha conta
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-blue-600 transition-all shadow-2xl shadow-blue-100 active:scale-95 uppercase flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                            {loading ? (
+                                <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <>
+                                    <UserPlus size={24} /> Criar minha conta
+                                </>
+                            )}
                         </button>
                     </form>
                 </div>
             </div>
 
-            {/* LADO DIREITO: MENSAGEM */}
-            <div className="hidden lg:flex lg:w-[40%] bg-slate-900 relative items-center justify-center p-12">
+            {/* PAINEL LATERAL DIREITO (Destaque Visual) */}
+            <div className="hidden lg:flex lg:w-[40%] bg-slate-900 relative items-center justify-center p-12 overflow-hidden z-10">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-transparent to-emerald-600/5"></div>
-                <div className="relative z-10 max-w-sm">
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[3rem] shadow-3xl">
+
+                {/* Efeito Visual Tech */}
+                <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-emerald-600/5 rounded-full blur-[100px]"></div>
+
+                <div className="relative z-10 max-w-sm w-full space-y-8 animate-in fade-in zoom-in duration-1000">
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[3.5rem] shadow-3xl">
                         <CheckCircle2 size={50} className="text-blue-500 mb-6" />
-                        <h3 className="text-3xl font-black text-white tracking-tighter mb-4 leading-none">Você está a um passo da melhor experiência técnica.</h3>
-                        <ul className="space-y-4">
-                            {['Acompanhamento em Tempo Real', 'Histórico de Laudos Digitais', 'Agendamento Prioritário'].map((text, i) => (
-                                <li key={i} className="flex items-center gap-3 text-slate-400 font-bold text-sm uppercase tracking-tighter">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div> {text}
-                                </li>
+                        <h3 className="text-3xl font-black text-white tracking-tighter mb-4 leading-none uppercase italic">Acesso Prioritário ao Ecossistema.</h3>
+                        <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8">
+                            Ao criar sua conta, você habilita o rastreamento em tempo real de seus dispositivos e o acesso ao histórico técnico digital.
+                        </p>
+
+                        <div className="space-y-4">
+                            {[
+                                { icon: Activity, text: 'Rastreamento em Tempo Real' },
+                                { icon: ShieldAlert, text: 'Laudos Digitais Autênticos' },
+                                { icon: AtSign, text: 'Notificações via WhatsApp' }
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center gap-3 text-[10px] text-white font-black uppercase tracking-widest">
+                                    <div className="p-2 bg-white/5 rounded-lg">
+                                        <item.icon size={14} className="text-blue-400" />
+                                    </div>
+                                    {item.text}
+                                </div>
                             ))}
-                        </ul>
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-blue-600 rounded-[2rem] text-white shadow-2xl shadow-blue-600/20 rotate-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-80">Dica do Analista:</p>
+                        <p className="text-xs font-bold leading-tight">
+                            "Mantenha seu e-mail e WhatsApp sempre atualizados para receber os alertas de conclusão do reparo em tempo real."
+                        </p>
                     </div>
                 </div>
             </div>

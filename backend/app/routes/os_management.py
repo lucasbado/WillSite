@@ -8,6 +8,7 @@ from ..models import (
     LaborConfig,
     OperationalCost,
     InventoryLoss,
+    User,
 )
 from datetime import datetime, timedelta
 import pytz
@@ -204,8 +205,13 @@ def validar_confirmacao_qr(os_id, token):
 @os_bp.route("/abrir", methods=["POST"])
 @jwt_required()
 def abrir_os():
-    data = request.json
     user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user or not user.is_verified:
+        return jsonify({"msg": "Sua conta ainda não foi verificada. Por favor, ative-a através do link enviado ao seu e-mail para abrir ordens de serviço."}), 403
+
+    data = request.json
 
     # Captura a data que o cliente escolheu no calendário
     data_cliente_str = data.get("data_entrega")  # Nome que vem do front

@@ -59,7 +59,7 @@ const HistoricoConcluidos = () => {
                             <h2 className="text-xl md:text-3xl font-black text-slate-800 dark:text-slate-50 tracking-tighter leading-none uppercase italic">
                                 Arquivo <span className="text-blue-600 dark:text-blue-500">de OS</span>
                             </h2>
-                            <p className="hidden md:block text-blue-600 dark:text-blue-500 font-black text-[10px] uppercase tracking-[0.2em] mt-1">Histórico de Sucesso SGAT</p>
+                            <p className="hidden md:block text-blue-600 dark:text-blue-500 font-black text-[10px] uppercase tracking-[0.2em] mt-1">Histórico de Sucesso Cidinho</p>
                         </div>
                     </div>
 
@@ -204,7 +204,7 @@ const HistoricoConcluidos = () => {
                                     <div className="space-y-3 md:space-y-4 text-[10px] md:text-xs font-black text-slate-200 uppercase tracking-tight">
                                         <div className="flex justify-between border-b border-white/5 pb-2">
                                             <span className="opacity-50">Técnico:</span>
-                                            <span>Lucas SGAT</span>
+                                            <span>Lucas Cidinho</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="opacity-50">Peças:</span>
@@ -244,7 +244,7 @@ const HistoricoConcluidos = () => {
                                     <div className="bg-slate-50 dark:bg-slate-950 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 transition-colors">
                                         <p className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Laudo de Solução</p>
                                         <p className="text-slate-700 dark:text-slate-300 font-bold italic leading-relaxed text-sm md:text-base">
-                                            "{detalhesOS.os_info?.laudo_tecnico || "Reparo realizado com sucesso conforme padrões SGAT."}"
+                                            "{detalhesOS.os_info?.laudo_tecnico || "Reparo realizado com sucesso conforme padrões Cidinho."}"
                                         </p>
                                     </div>
 
@@ -260,11 +260,11 @@ const HistoricoConcluidos = () => {
                         </div>
                     </div>
 
-                    {/* --- ÁREA DE IMPRESSÃO (SGAT TECHNICAL STANDARD) --- */}
+                    {/* --- ÁREA DE IMPRESSÃO (Cidinho TECHNICAL STANDARD) --- */}
                     <div id="print-area-wrapper" className="hidden print:block bg-white text-slate-900 p-12">
                         <div className="flex justify-between items-start mb-12 border-b-8 border-slate-900 pb-8">
                             <div>
-                                <h3 className="text-4xl font-black tracking-tighter uppercase leading-none italic">SGAT - Assistência Técnica</h3>
+                                <h3 className="text-4xl font-black tracking-tighter uppercase leading-none italic">Cidinho - Assistência Técnica</h3>
                                 <p className="text-slate-600 font-bold uppercase text-sm tracking-[0.3em] mt-3">Recibo de Prestação de Serviços Técnicos</p>
                             </div>
                             <div className="text-right">
@@ -375,7 +375,7 @@ const HistoricoConcluidos = () => {
 
                             <div className="flex flex-col items-center gap-1">
                                 <p className="text-[7px] font-black uppercase text-slate-300 tracking-[0.4em] italic leading-none">
-                                    SGAT Technical Solutions
+                                    Cidinho Technical Solutions
                                 </p>
                                 <div className="flex items-center gap-4 mt-1">
                                     <span className="text-[7px] font-black text-slate-200 uppercase tracking-widest">Command Center São Paulo, SP</span>

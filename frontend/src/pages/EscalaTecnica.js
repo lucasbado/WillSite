@@ -35,7 +35,7 @@ const EscalaTecnica = () => {
                         </button>
                         <div>
                             <h2 className="text-3xl font-black tracking-tighter uppercase italic leading-none">Escala de Demanda</h2>
-                            <p className="text-blue-500 font-bold text-[10px] uppercase tracking-[0.3em] mt-1 italic">Planejamento de Carga Técnica SGAT</p>
+                            <p className="text-blue-500 font-bold text-[10px] uppercase tracking-[0.3em] mt-1 italic">Planejamento de Carga Técnica Cidinho</p>
                         </div>
                     </div>
                     

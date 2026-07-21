@@ -29,7 +29,11 @@ const Login = () => {
         navigate('/cliente/dashboard');
       }
     } catch (err) {
-      setError('E-mail ou senha incorretos. Tente novamente.');
+      if (err.response?.status === 403) {
+        setError(err.response.data.msg);
+      } else {
+        setError('E-mail ou senha incorretos. Tente novamente.');
+      }
     }
   };
 
@@ -52,7 +56,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-white flex font-sans overflow-hidden">
       
-      {/* BOTÃO VOLTAR À HOME (Padrão SGAT) */}
+      {/* BOTÃO VOLTAR À HOME (Padrão Cidinho) */}
       <button
         onClick={() => navigate('/')}
         className="fixed top-8 left-8 flex items-center gap-3 text-slate-400 hover:text-slate-800 font-bold transition-all group z-50 no-print"
@@ -77,7 +81,7 @@ const Login = () => {
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-2xl font-black tracking-tighter text-slate-900 uppercase">
-                SGAT<span className="text-blue-600">.</span>
+                Cidinho<span className="text-blue-600">.</span>
               </span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
                 Systems Analyst
@@ -105,12 +109,12 @@ const Login = () => {
           {!resetMode ? (
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seu E-mail</label>
                 <div className="relative group">
                   <Mail className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
                   <input
                     type="email"
-                    placeholder="exemplo@sgat.com"
+                    placeholder="exemplo@cidinho.com"
                     className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -158,7 +162,7 @@ const Login = () => {
                   <Mail className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
                   <input
                     type="email"
-                    placeholder="exemplo@sgat.com"
+                    placeholder="exemplo@cidinho.com"
                     className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
@@ -210,19 +214,12 @@ const Login = () => {
                 </p>
             </div>
             
-            <div className="mt-12 flex justify-center gap-8 opacity-40">
-                <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white font-black text-xs italic">S</div>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white font-black text-xs italic">G</div>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white font-black text-xs italic">A</div>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white font-black text-xs italic">T</div>
-                </div>
+            <div className="mt-12 flex justify-center gap-4 opacity-40">
+                {['C', 'I', 'D', 'I', 'N', 'H', 'O'].map((char, index) => (
+                    <div key={index} className="flex flex-col items-center gap-2">
+                        <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white font-black text-xs italic">{char}</div>
+                    </div>
+                ))}
             </div>
         </div>
       </div>
