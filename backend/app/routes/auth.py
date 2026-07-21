@@ -175,6 +175,84 @@ def verificar_cpf(cpf):
     return jsonify({"existe": False}), 200
 
 
+# --- ROTA: REGISTRAR USUÁRIO PELO ADMIN ---
+@auth_bp.route("/admin/criar-usuario", methods=["POST"], strict_slashes=False)
+@jwt_required()
+def registrar_usuario_admin():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"msg": "Acesso negado"}), 403
+
+    data = request.get_json()
+
+    # Validações básicas
+    if (
+        not data.get("email")
+        or not data.get("password")
+        or not data.get("nome_completo")
+        or not data.get("cpf")
+    ):
+        return jsonify({"msg": "Campos obrigatórios ausentes"}), 400
+
+    # Verifica se já existe
+    if User.query.filter_by(email=data["email"]).first():
+        return jsonify({"msg": "Este e-mail já está cadastrado"}), 400
+
+    if User.query.filter_by(cpf=data["cpf"]).first():
+        return jsonify({"msg": "Este CPF já está cadastrado"}), 400
+
+    try:
+        novo_usuario = User(
+            username=data.get(
+                "username",
+                data.get("nome_completo").split()[0] + str(random.randint(100, 999)),
+            ),
+            nome_completo=data.get("nome_completo"),
+            email=data.get("email"),
+            cpf=data.get("cpf"),
+            role=data.get("role", "cliente"),
+            telefone=data.get("telefone"),
+            cep=data.get("cep"),
+            endereco=data.get("endereco"),
+            is_verified=True if data.get("email") == "admin@sgat.com" else False,
+        )
+        novo_usuario.set_password(data.get("password"))
+
+        db.session.add(novo_usuario)
+        db.session.commit()
+
+        # BYPASS PARA O ADMIN PRINCIPAL
+        if novo_usuario.email == "admin@sgat.com":
+            return (
+                jsonify(
+                    {
+                        "msg": "Usuário admin criado com sucesso (Bypass de e-mail ativado)!"
+                    }
+                ),
+                201,
+            )
+
+        # Envia e-mail de verificação para os demais usuários
+        s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+        token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verify_url = f"{frontend_url}/verify-email?token={token}"
+
+        msg = Message(
+            "Ativação de Conta - SGAT",
+            sender=current_app.config.get("MAIL_DEFAULT_SENDER"),
+            recipients=[novo_usuario.email],
+            body=f"Olá {novo_usuario.nome_completo},\n\nUma conta foi criada para você no SGAT pelo administrador. Para ativar seu acesso, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
+        )
+        mail.send(msg)
+
+        return jsonify({"msg": "Usuário criado e convite enviado por e-mail!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": f"Erro ao criar usuário: {str(e)}"}), 500
+
+
 @auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
