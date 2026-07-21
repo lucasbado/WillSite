@@ -214,40 +214,20 @@ def registrar_usuario_admin():
             telefone=data.get("telefone"),
             cep=data.get("cep"),
             endereco=data.get("endereco"),
-            is_verified=True if data.get("email") == "admin@sgat.com" else False,
+            # --- MELHORIA DE FLUXO ---
+            # Se um admin está criando o usuário, consideramos o usuário como verificado
+            # para evitar problemas caso o envio de e-mail (que pode falhar no servidor)
+            # impeça o login do novo usuário.
+            is_verified=True,
         )
         novo_usuario.set_password(data.get("password"))
 
         db.session.add(novo_usuario)
         db.session.commit()
 
-        # BYPASS PARA O ADMIN PRINCIPAL
-        if novo_usuario.email == "admin@sgat.com":
-            return (
-                jsonify(
-                    {
-                        "msg": "Usuário admin criado com sucesso (Bypass de e-mail ativado)!"
-                    }
-                ),
-                201,
-            )
-
-        # Envia e-mail de verificação para os demais usuários
-        s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
-        token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
-
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-        verify_url = f"{frontend_url}/verify-email?token={token}"
-
-        msg = Message(
-            "Ativação de Conta - SGAT",
-            sender=current_app.config.get("MAIL_DEFAULT_SENDER"),
-            recipients=[novo_usuario.email],
-            body=f"Olá {novo_usuario.nome_completo},\n\nUma conta foi criada para você no SGAT pelo administrador. Para ativar seu acesso, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
-        )
-        mail.send(msg)
-
-        return jsonify({"msg": "Usuário criado e convite enviado por e-mail!"}), 201
+        # Como o usuário já está verificado, a notificação por e-mail se torna opcional
+        # e não bloqueia mais o fluxo de sucesso.
+        return jsonify({"msg": "Usuário criado e ativado com sucesso!"}), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": f"Erro ao criar usuário: {str(e)}"}), 500
