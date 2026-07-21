@@ -271,7 +271,8 @@ def register():
 
         msg = Message(
             "Verificação de E-mail - SGAT",
-            sender=current_app.config.get("MAIL_DEFAULT_SENDER"),
+            sender=current_app.config.get("MAIL_DEFAULT_SENDER")
+            or current_app.config.get("MAIL_USERNAME"),
             recipients=[novo_usuario.email],
             body=f"Olá {novo_usuario.nome_completo},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
         )
