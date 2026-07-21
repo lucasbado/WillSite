@@ -8,19 +8,25 @@ import socket
 
 def send_async_email(app, msg):
     """
-    Tenta enviar e-mail via API do Resend (Porta 443 - Liberada no Render).
-    Se não houver API Key, tenta via SMTP (Gmail).
+    Tenta enviar e-mail via API do Resend.
     """
-    print(f"SGAT DEBUG: Iniciando send_async_email para {msg.recipients}")
+    import os
+    print(f"SGAT DEBUG: Iniciando thread de e-mail para {msg.recipients}")
     with app.app_context():
         resend_key = os.getenv("RESEND_API_KEY")
-        print(f"SGAT DEBUG: Chave RESEND_API_KEY encontrada? {'Sim' if resend_key else 'Não'}")
         
         if resend_key:
             try:
                 import requests
                 sender = os.getenv("RESEND_SENDER", "onboarding@resend.dev")
-                print(f"SGAT DEBUG: Tentando enviar via Resend API (Sender: {sender})...")
+                
+                # Garante que o destinatário seja uma string (Resend prefere assim para e-mail único)
+                if isinstance(msg.recipients, list) and len(msg.recipients) > 0:
+                    destinatario = msg.recipients[0]
+                else:
+                    destinatario = msg.recipients
+
+                print(f"SGAT DEBUG: Chamando API Resend (Para: {destinatario}, De: {sender})")
                 
                 response = requests.post(
                     "https://api.resend.com/emails",
@@ -30,27 +36,27 @@ def send_async_email(app, msg):
                     },
                     json={
                         "from": f"SGAT <{sender}>",
-                        "to": msg.recipients,
+                        "to": destinatario,
                         "subject": msg.subject,
                         "html": msg.html,
                     },
-                    timeout=15
+                    timeout=20
                 )
                 
                 if response.status_code in [200, 201, 202]:
-                    print(f"SGAT LOG: E-mail enviado com SUCESSO via Resend para {msg.recipients}")
+                    print(f"SGAT LOG: E-mail enviado com SUCESSO via Resend!")
                     return
                 else:
-                    print(f"SGAT ERROR: Resend API falhou ({response.status_code}): {response.text}")
+                    print(f"SGAT ERROR: Resend API recusou o e-mail ({response.status_code}): {response.text}")
             except Exception as e:
-                print(f"SGAT ERROR: Erro ao chamar API do Resend: {str(e)}")
+                print(f"SGAT ERROR: Erro inesperado na thread: {str(e)}")
 
         # FALLBACK: SMTP (Gmail)
         print("SGAT DEBUG: Tentando fallback via SMTP...")
         try:
             from .. import mail
             mail.send(msg)
-            print(f"SGAT LOG: E-mail enviado via SMTP para {msg.recipients}")
+            print(f"SGAT LOG: E-mail enviado via SMTP")
         except Exception as smtp_error:
             print(f"SGAT ERROR: Falha total no envio (SMTP): {str(smtp_error)}")
 
