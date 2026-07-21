@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import notify from '../utils/notifications';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 const DashboardCliente = () => {
@@ -78,7 +79,7 @@ const DashboardCliente = () => {
             setIsModalOpen(false);
             setFormData({ modelo: '', problema: '', data_entrega: '', valor_servico: 0 });
             fetchHistorico();
-        } catch (err) { alert("Erro ao abrir OS."); }
+        } catch (err) { notify.error("Erro ao abrir OS."); }
         finally { setLoading(false); }
     };
 
@@ -101,7 +102,7 @@ const DashboardCliente = () => {
                 token: data.token
             });
 
-            alert("✅ Entrega Confirmada!");
+            notify.success("Entrega Confirmada!");
             setIsScannerOpen(false);
             window.location.reload();
 
@@ -121,9 +122,9 @@ const DashboardCliente = () => {
             try {
                 await api.patch(`/os/excluir/${id}`);
                 fetchHistorico();
-                alert("Solicitação cancelada com sucesso.");
+                notify.success("Solicitação cancelada com sucesso.");
             } catch (err) {
-                alert(err.response?.data?.msg || "Erro ao cancelar OS.");
+                notify.error(err.response?.data?.msg || "Erro ao cancelar OS.");
             }
         }
     };

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import notify from '../utils/notifications';
 
 const DashboardFinanceiro = () => {
     const navigate = useNavigate();
@@ -29,14 +30,14 @@ const DashboardFinanceiro = () => {
 
     // Altere o useEffect no seu arquivo DashboardFinanceiro.js
     const registrarPerda = async (id) => {
-        const motivo = window.prompt("Motivo da perda (ex: Quebra na montagem, Defeito de fábrica):");
+        const motivo = await notify.prompt("Motivo da Perda", "Descreva o ocorrido (ex: Quebra na montagem):");
         if (motivo) {
             try {
                 await api.post(`/estoque/registrar-perda/${id}`, { motivo });
                 carregarDadosFinanceiros(); // Atualiza a lista
-                alert("Perda registrada no fluxo financeiro.");
+                notify.success("Perda registrada no fluxo financeiro.");
             } catch (err) {
-                alert("Erro ao registrar perda.");
+                notify.error("Erro ao registrar perda.");
             }
         }
     };
@@ -365,8 +366,8 @@ const DashboardFinanceiro = () => {
                                 });
                                 setIsLossModalOpen(false);
                                 carregarDadosFinanceiros(); // Atualiza o dash
-                                alert("Perda contabilizada.");
-                            } catch (err) { alert("Erro ao registrar."); }
+                                notify.success("Perda contabilizada.");
+                            } catch (err) { notify.error("Erro ao registrar."); }
                         }} className="space-y-4">
 
                             <div>

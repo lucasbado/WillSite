@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import notify from '../utils/notifications';
 
 const GestaoEstoque = () => {
     const navigate = useNavigate();
@@ -83,10 +84,10 @@ const GestaoEstoque = () => {
             }
             fecharModal();
             carregarDados();
-            alert("Sistema atualizado com sucesso!");
+            notify.success("Sistema atualizado com sucesso!");
         } catch (err) {
             console.error(err);
-            alert("Erro na operação.");
+            notify.error("Erro na operação.");
         }
     };
 
@@ -98,11 +99,13 @@ const GestaoEstoque = () => {
     };
 
     const handleDeletar = async (id) => {
-        if (window.confirm("Deseja remover este item permanentemente?")) {
+        const confirmar = await notify.confirm("Remover Item", "Deseja remover este item permanentemente?");
+        if (confirmar) {
             try {
                 await api.delete(`/estoque/${id}`);
                 carregarDados();
-            } catch (err) { alert("Erro ao deletar."); }
+                notify.success("Item removido.");
+            } catch (err) { notify.error("Erro ao deletar."); }
         }
     };
 
@@ -131,20 +134,21 @@ const GestaoEstoque = () => {
     };
 
     const registrarPerdaTecnica = async (item) => {
-        const qtd = window.prompt(`Quantas unidades de "${item.nome}" foram perdidas?`, "1");
-        if (!qtd || isNaN(qtd)) return;
+        const qtd = await notify.prompt(`Baixa de Estoque`, `Quantas unidades de "${item.nome}" foram perdidas?`, "1", "number");
+        if (!qtd) return;
 
-        const motivo = window.prompt("Motivo da perda (ex: Quebra na montagem, defeito):", "Quebra Técnica");
+        const motivo = await notify.prompt("Motivo da Perda", "Descreva o ocorrido (ex: Quebra na montagem):", "Quebra Técnica");
+        if (!motivo) return;
 
         try {
             await api.post(`/estoque/registrar-perda/${item.id}`, {
                 quantidade: parseInt(qtd),
                 motivo: motivo
             });
-            alert("Prejuízo registrado. O estoque foi atualizado.");
+            notify.success("Prejuízo registrado. Estoque atualizado.");
             carregarDados(); // Recarrega a lista de estoque
         } catch (err) {
-            alert("Erro ao registrar perda.");
+            notify.error("Erro ao registrar perda.");
         }
     };
 

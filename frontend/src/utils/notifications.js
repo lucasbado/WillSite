@@ -76,6 +76,20 @@ const notify = {
             text: text,
             icon: icon
         });
+    },
+    prompt: async (title, text, defaultValue = '', inputType = 'text') => {
+        const { value } = await Swal.fire({
+            ...darkTheme,
+            title: title.toUpperCase(),
+            text: text,
+            input: inputType,
+            inputValue: defaultValue,
+            showCancelButton: true,
+            confirmButtonText: 'CONFIRMAR',
+            cancelButtonText: 'CANCELAR',
+            reverseButtons: true
+        });
+        return value;
     }
 };
 

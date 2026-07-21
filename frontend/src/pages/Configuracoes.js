@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
+import notify from '../utils/notifications';
 
 import { IMaskInput } from 'react-imask';
 
@@ -116,10 +117,10 @@ const Configuracoes = () => {
             await api.post('/auth/admin/criar-usuario', novoUsuario);
             setNovoUsuario({ nome_completo: '', email: '', cpf: '', telefone: '', password: '', role: 'cliente' });
             fetchData();
-            alert("Usuário cadastrado com sucesso!");
+            notify.success("Usuário cadastrado com sucesso!");
         } catch (err) {
             console.error("Erro ao cadastrar usuário:", err);
-            alert(err.response?.data?.msg || "Falha no cadastro.");
+            notify.error(err.response?.data?.msg || "Falha no cadastro.");
         }
     };
 
@@ -165,10 +166,10 @@ const Configuracoes = () => {
             // Atualiza a lista de fornecedores na tela
             fetchData();
 
-            alert("Fornecedor integrado com sucesso!");
+            notify.success("Fornecedor integrado com sucesso!");
         } catch (err) {
             console.error("Erro ao adicionar fornecedor:", err);
-            alert("Erro ao integrar fornecedor. Verifique a conexão.");
+            notify.error("Erro ao integrar fornecedor. Verifique a conexão.");
         }
     };
 
@@ -178,21 +179,23 @@ const Configuracoes = () => {
             await api.put(`/vendors/${editandoFornecedor.id}`, editandoFornecedor);
             setIsEditModalOpen(false);
             fetchData(); // Recarrega a lista do banco
-            alert("Dados do fornecedor atualizados!");
+            notify.success("Dados do fornecedor atualizados!");
         } catch (err) {
             console.error("Erro ao editar:", err);
-            alert("Falha na atualização.");
+            notify.error("Falha na atualização.");
         }
     };
 
     const handleDeletarFornecedor = async (id) => {
-        if (window.confirm("Deseja desvincular este fornecedor?")) {
+        const confirmar = await notify.confirm("Desvincular Fornecedor", "Deseja realmente remover este parceiro?");
+        if (confirmar) {
             setDeletingId(id); // <-- ATIVA O LOADING
             try {
                 await api.delete(`/vendors/${id}`);
                 fetchData(); // Atualiza a lista
+                notify.success("Fornecedor removido.");
             } catch (err) {
-                alert("Erro ao remover fornecedor.");
+                notify.error("Erro ao remover fornecedor.");
             } finally {
                 setDeletingId(null); // <-- DESLIGA O LOADING (no sucesso ou erro)
             }
@@ -206,7 +209,7 @@ const Configuracoes = () => {
 
         // Verificação de segurança: evita salvar campos vazios
         if (!novaMarca || !novoModelo) {
-            alert("⚠️ Preencha todos os campos ou selecione uma sugestão.");
+            notify.warning("Preencha todos os campos ou selecione uma sugestão.");
             return;
         }
 
@@ -221,7 +224,7 @@ const Configuracoes = () => {
 
             if (response.status === 201 || response.status === 200) {
                 // Feedback visual de sucesso
-                alert("✅ Modelo sincronizado com a Engine!");
+                notify.success("Modelo sincronizado com a Engine!");
                 setNovaMarca('');
                 setNovoModelo('');
                 setSugestoes([]);
@@ -229,7 +232,7 @@ const Configuracoes = () => {
             }
         } catch (err) {
             console.error("Erro ao sincronizar modelo:", err);
-            alert("❌ Erro ao salvar no banco de dados.");
+            notify.error("Erro ao salvar no banco de dados.");
         }
     };
 
@@ -241,20 +244,24 @@ const Configuracoes = () => {
     };
 
     const handleDeletarModelo = async (id) => {
-        if (window.confirm("Deseja remover este modelo da Engine?")) {
+        const confirmar = await notify.confirm("Remover Modelo", "Deseja remover este modelo da Engine?");
+        if (confirmar) {
             try {
                 await api.delete(`/devices/${id}`);
                 fetchData();
-            } catch (err) { alert("Erro ao deletar modelo."); }
+                notify.success("Modelo removido.");
+            } catch (err) { notify.error("Erro ao deletar modelo."); }
         }
     };
 
     const handleDeletarUsuario = async (id, nome) => {
-        if (window.confirm(`Deseja remover o acesso de ${nome}?`)) {
+        const confirmar = await notify.confirm("Remover Usuário", `Deseja remover o acesso de ${nome}?`);
+        if (confirmar) {
             try {
                 await api.delete(`/auth/admin/usuarios/${id}`);
                 fetchData();
-            } catch (err) { alert("Erro ao remover usuário."); }
+                notify.success("Usuário removido.");
+            } catch (err) { notify.error("Erro ao remover usuário."); }
         }
     };
 
@@ -828,7 +835,7 @@ const Configuracoes = () => {
                                                         const urlFinal = `https://wa.me/${foneLimpo}?text=${msg}`;
                                                         window.open(urlFinal, '_blank');
                                                     } else {
-                                                        alert("Estoque em dia! Nenhuma peça abaixo do mínimo.");
+                                                        notify.info("Estoque em dia! Nenhuma peça abaixo do mínimo.");
                                                     }
                                                 }}
                                                 className="flex-1 py-4 bg-slate-900 dark:bg-slate-950 text-white rounded-2xl font-black uppercase text-[9px] tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all active:scale-95 shadow-lg relative overflow-hidden group"

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from './api';
+import notify from '../utils/notifications';
 import html2pdf from 'html2pdf.js';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -128,7 +129,7 @@ const DashboardAdmin = () => {
             // ESSENCIAL: Recarregar a lista para o React "enxergar" a nova data de expiração
             await carregarDados();
 
-            alert("Código gerado com sucesso!");
+            notify.success("Código gerado com sucesso!");
         } catch (err) {
             console.error("Erro ao gerar código");
         }
@@ -457,7 +458,7 @@ const DashboardAdmin = () => {
                         pollingRef.current = null;
 
                         setShowVerifyModal(false);
-                        alert("✅ Entrega confirmada!");
+                        notify.success("Entrega confirmada!");
                         carregarDados(); // Atualiza sua lista
                     }
                 } catch (err) {
@@ -479,7 +480,7 @@ const DashboardAdmin = () => {
 
     const handleAgendar = async () => {
         if (!dataAgendamento || !horaSelecionada || !selectedOS) {
-            alert("Por favor, selecione a data e o horário.");
+            notify.warning("Por favor, selecione a data e o horário.");
             return;
         }
 
@@ -503,11 +504,11 @@ const DashboardAdmin = () => {
                 window.open(res.data.whatsapp_link, '_blank');
             }
 
-            alert("Serviço agendado e status atualizado!");
+            notify.success("Serviço agendado e status atualizado!");
             carregarDados(); // Atualiza a lista de fundo também
 
         } catch (err) {
-            alert("Erro ao agendar.");
+            notify.error("Erro ao agendar.");
         } finally {
             setLoading(false);
         }
@@ -622,7 +623,7 @@ const DashboardAdmin = () => {
                     motivo: motivo
                 });
 
-                alert("Perda registrada e estoque atualizado!");
+                notify.success("Perda registrada e estoque atualizado!");
 
                 // ATUALIZAÇÃO EM TEMPO REAL:
                 // Recarregamos as peças sugeridas para o erro sumir da tela
@@ -631,7 +632,7 @@ const DashboardAdmin = () => {
 
             } catch (err) {
                 console.error(err);
-                alert("Erro ao processar baixa.");
+                notify.error("Erro ao processar baixa.");
             }
         }
     };
@@ -639,7 +640,7 @@ const DashboardAdmin = () => {
     const handleFinalizarComCodigo = async () => {
         // Validação básica de segurança
         if (!selectedOS || !selectedOS.id) {
-            alert("Erro: ID da OS não encontrado.");
+            notify.error("Erro: ID da OS não encontrado.");
             return;
         }
 
@@ -658,7 +659,7 @@ const DashboardAdmin = () => {
             // 2. PASSO DE NOTIFICAÇÃO: Gera o QR e avisa o cliente
             await api.post(`/os/${selectedOS.id}/pronto`);
 
-            alert("✅ REPARO FINALIZADO: Financeiro registrado e cliente notificado!");
+            notify.success("Reparo finalizado e cliente notificado!");
 
             // Reset de estados e fechamento
             setShowConcluirModal(false);
@@ -673,7 +674,7 @@ const DashboardAdmin = () => {
 
         } catch (err) {
             console.error("Erro na finalização:", err);
-            alert(err.response?.data?.msg || "Erro ao processar finalização técnica.");
+            notify.error(err.response?.data?.msg || "Erro ao processar finalização técnica.");
         } finally {
             setLoading(false);
         }
@@ -705,7 +706,7 @@ const DashboardAdmin = () => {
                 }
             );
 
-            alert("✅ Entrega validada! OS encerrada com sucesso.");
+            notify.success("Entrega validada! OS encerrada.");
 
             // 3. Executa o reset da interface
             if (typeof fecharHandshakeESair === 'function') {
@@ -720,7 +721,7 @@ const DashboardAdmin = () => {
             const msgErro = err.response?.data?.msg || err.message || "Erro na validação.";
 
             // Correção da string template que estava com chaves simples no seu código
-            alert(`⚠️ ${msgErro}`);
+            notify.error(msgErro);
         } finally {
             setLoading(false);
         }
@@ -728,7 +729,7 @@ const DashboardAdmin = () => {
 
     const handleConcluir = async () => {
         if (!selectedOS || !laudo) {
-            alert("O laudo técnico é obrigatório.");
+            notify.warning("O laudo técnico é obrigatório.");
             return;
         }
 
@@ -764,13 +765,13 @@ const DashboardAdmin = () => {
             if (res.data.whatsapp_link) {
                 setWhatsLinkPending(res.data.whatsapp_link);
             } else {
-                alert("Sucesso!");
+                notify.success("Sucesso!");
                 fecharEResetar();
             }
 
         } catch (err) {
             console.error("Erro ao concluir:", err);
-            alert("Falha técnica na conclusão. Verifique o console.");
+            notify.error("Falha técnica na conclusão. Verifique o console.");
         } finally {
             setLoading(false);
         }
@@ -790,9 +791,9 @@ const DashboardAdmin = () => {
                 setSelectedOS(res.data.os_atualizada);
             }
 
-            alert("Status: PRONTO PARA RETIRADA. Código gerado!");
+            notify.success("Status: PRONTO PARA RETIRADA.");
         } catch (err) {
-            alert("Erro ao processar.");
+            notify.error("Erro ao processar.");
         }
     };
     const handleLogOut = () => {

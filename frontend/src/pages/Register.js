@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import api from './api';
+import notify from '../utils/notifications';
 
 // COMPONENTE AUXILIAR (Fora do Register para evitar perda de foco no re-render)
 const InputGroup = ({ label, icon: Icon, children, error, hint }) => (
@@ -73,12 +74,12 @@ const Register = () => {
         // VALIDAÇÃO DE FORMATO DE E-MAIL
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
-            alert("⚠️ Formato de e-mail inválido. Use o padrão: nome@exemplo.com");
+            notify.warning("Formato de e-mail inválido. Use o padrão: nome@exemplo.com");
             return;
         }
 
         if (erroCPF) {
-            alert("Corrija o CPF antes de prosseguir.");
+            notify.warning("Corrija o CPF antes de prosseguir.");
             return;
         }
         setLoading(true);
@@ -87,7 +88,7 @@ const Register = () => {
             // Redireciona para a página de confirmação para uma melhor UX
             navigate('/confirmar-email');
         } catch (err) {
-            alert("❌ " + (err.response?.data?.msg || "Erro no cadastro."));
+            notify.error(err.response?.data?.msg || "Erro no cadastro.");
         } finally {
             setLoading(false);
         }

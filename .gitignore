@@ -31,3 +31,4 @@ instance/
 .idea/
 .DS_Store
 Thumbs.db
+*.MD
