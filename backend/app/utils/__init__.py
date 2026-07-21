@@ -6,14 +6,17 @@ import os
 
 
 def send_async_email(app, msg):
-    """Função interna para disparar o e-mail em background"""
+    """Função interna para disparar o e-mail em background com log detalhado"""
     with app.app_context():
         try:
-            # Busca a extensão registrada no app factory
-            app.extensions["mail"].send(msg)
-            print("SGAT LOG: E-mail enviado com sucesso.")
+            from .. import mail
+            mail.send(msg)
+            print(f"SGAT LOG: E-mail enviado com sucesso para {msg.recipients}")
         except Exception as e:
-            print(f"SGAT ERROR: Falha ao enviar e-mail: {str(e)}")
+            import traceback
+            print("SGAT ERROR: Falha crítica no envio de e-mail.")
+            print(f"Detalhe do erro: {str(e)}")
+            traceback.print_exc()
 
 
 def enviar_notificacao_status(
