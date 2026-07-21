@@ -20,7 +20,7 @@ jwt = JWTManager()
 mail = Mail()  # Instância global
 
 
-def ensure_work_orders_columns(app):
+def ensure_db_schema(app):
     with app.app_context():
         try:
             # 1. Garante que o schema 'public' existe (importante para Neon/Postgres resetados)
@@ -36,16 +36,25 @@ def ensure_work_orders_columns(app):
             return
 
         if engine.dialect.name == "postgresql":
-            required_columns = {
+            # Colunas para a tabela 'work_orders'
+            wo_columns = {
                 "valor_mao_obra": "FLOAT DEFAULT 0.0",
                 "custo_operacional": "FLOAT DEFAULT 0.0",
                 "desconto_aplicado": "FLOAT DEFAULT 0.0",
                 "total_price": "FLOAT",
+                "verification_code": "VARCHAR(4)",
+                "ready_at": "TIMESTAMP",
+                "code_expires_at": "TIMESTAMP",
+            }
+
+            # Colunas para a tabela 'users'
+            user_columns = {
+                "is_verified": "BOOLEAN DEFAULT FALSE",
             }
 
             with engine.connect() as conn:
-                for column_name, column_type in required_columns.items():
-                    # Verificação robusta de existência de coluna no Postgres
+                # Atualiza work_orders
+                for column_name, column_type in wo_columns.items():
                     exists = conn.execute(
                         text(
                             "SELECT 1 FROM information_schema.columns "
@@ -61,6 +70,25 @@ def ensure_work_orders_columns(app):
                                 f"ALTER TABLE work_orders ADD COLUMN {column_name} {column_type};"
                             )
                         )
+                
+                # Atualiza users
+                for column_name, column_type in user_columns.items():
+                    exists = conn.execute(
+                        text(
+                            "SELECT 1 FROM information_schema.columns "
+                            "WHERE table_name = 'users' "
+                            "AND column_name = :column_name"
+                        ),
+                        {"column_name": column_name},
+                    ).first()
+
+                    if not exists:
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE users ADD COLUMN {column_name} {column_type};"
+                            )
+                        )
+                
                 conn.commit()
 
 
@@ -123,7 +151,7 @@ def create_app():
     app.register_blueprint(devices_bp, url_prefix="/api/devices")
     app.register_blueprint(vendors_bp, url_prefix="/api/vendors")
 
-    ensure_work_orders_columns(app)
+    ensure_db_schema(app)
 
     # Logo após criar o app = Flask(__name__)
 

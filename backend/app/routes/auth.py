@@ -235,76 +235,84 @@ def registrar_usuario_admin():
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-
-    # Verifica se já existe
-    if User.query.filter_by(email=data.get("email")).first():
-        return jsonify({"msg": "Este e-mail já está cadastrado"}), 400
-
-    if User.query.filter_by(cpf=data.get("cpf")).first():
-        return jsonify({"msg": "Este CPF já está cadastrado"}), 400
-
-    # --- MELHORIA DE ROBUSTEZ ---
-    # Gera um username padrão caso não seja enviado, evitando erros no banco
-    username = data.get("username")
-    if not username and data.get("nome_completo"):
-        username = data.get("nome_completo").split(" ")[0].lower() + str(
-            random.randint(100, 999)
-        )
-
-    # Verifique se os nomes batem com o models.py
-    novo_usuario = User(
-        username=username,
-        nome_completo=data.get("nome_completo"),  # Em vez de 'name'
-        email=data.get("email"),
-        cpf=data.get("cpf"),
-        cep=data.get("cep"),
-        endereco=data.get("endereco"),
-        role="cliente",
-        telefone=data.get("telefone"),
-        is_verified=False,
-    )
-    novo_usuario.set_password(data.get("password"))
-
     try:
-        db.session.add(novo_usuario)
-        db.session.commit()
+        data = request.get_json()
+        if not data:
+            return jsonify({"msg": "Corpo da requisição ausente ou inválido"}), 400
 
-        # --- MELHORIA DE FLUXO ---
-        # O envio de e-mail agora é desacoplado da resposta de sucesso.
-        # Se o e-mail falhar, o usuário ainda recebe a mensagem de sucesso,
-        # e o erro é logado no servidor para o desenvolvedor investigar.
-        try:
-            s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
-            token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
+        # Validação de campos obrigatórios
+        campos_obrigatorios = ["email", "password", "nome_completo", "cpf"]
+        for campo in campos_obrigatorios:
+            if not data.get(campo):
+                return jsonify({"msg": f"O campo '{campo}' é obrigatório"}), 400
 
-            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-            verify_url = f"{frontend_url}/verify-email?token={token}"
+        # Verifica se já existe
+        if User.query.filter_by(email=data.get("email")).first():
+            return jsonify({"msg": "Este e-mail já está cadastrado"}), 400
 
-            msg = Message(
-                "Verificação de E-mail - SGAT",
-                sender=current_app.config.get("MAIL_DEFAULT_SENDER")
-                or current_app.config.get("MAIL_USERNAME"),
-                recipients=[novo_usuario.email],
-                body=f"Olá {novo_usuario.nome_completo},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
-            )
-            mail.send(msg)
-        except Exception as email_error:
-            # Loga o erro no console do servidor (Render) para depuração
-            print(
-                f"ALERTA: O envio de e-mail de verificação falhou para {novo_usuario.email}. Erro: {str(email_error)}"
+        if User.query.filter_by(cpf=data.get("cpf")).first():
+            return jsonify({"msg": "Este CPF já está cadastrado"}), 400
+
+        # Gera um username padrão caso não seja enviado
+        username = data.get("username")
+        if not username:
+            username = data.get("nome_completo").split(" ")[0].lower() + str(
+                random.randint(100, 999)
             )
 
-        # A resposta de sucesso é sempre enviada, melhorando a experiência do usuário.
-        return (
-            jsonify(
-                {"msg": "Usuário criado! Verifique seu e-mail para ativar a conta."}
-            ),
-            201,
+        # Verifique se os nomes batem com o models.py
+        novo_usuario = User(
+            username=username,
+            nome_completo=data.get("nome_completo"),
+            email=data.get("email"),
+            cpf=data.get("cpf"),
+            cep=data.get("cep"),
+            endereco=data.get("endereco"),
+            role="cliente",
+            telefone=data.get("telefone"),
+            is_verified=False,
         )
-    except Exception as db_error:
-        db.session.rollback()
-        return jsonify({"msg": f"Erro ao salvar no banco de dados: {str(db_error)}"}), 500
+        novo_usuario.set_password(data.get("password"))
+
+        try:
+            db.session.add(novo_usuario)
+            db.session.commit()
+
+            # Envio de e-mail assíncrono via Thread para não bloquear a resposta
+            from threading import Thread
+            app_obj = current_app._get_current_object()
+
+            def send_async_registration_email(app, user_email, user_name):
+                with app.app_context():
+                    try:
+                        s = URLSafeTimedSerializer(app.config["JWT_SECRET_KEY"])
+                        token = s.dumps(user_email, salt="email-confirm-salt")
+                        
+                        frontend_url = os.getenv("FRONTEND_URL", "https://cidinho.onrender.com")
+                        verify_url = f"{frontend_url}/verify-email?token={token}"
+
+                        msg = Message(
+                            "Verificação de E-mail - SGAT",
+                            sender=app.config.get("MAIL_DEFAULT_SENDER") or app.config.get("MAIL_USERNAME"),
+                            recipients=[user_email],
+                            body=f"Olá {user_name},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
+                        )
+                        from .. import mail
+                        mail.send(msg)
+                    except Exception as e:
+                        print(f"Erro no envio de e-mail assíncrono: {e}")
+
+            Thread(target=send_async_registration_email, args=(app_obj, novo_usuario.email, novo_usuario.nome_completo)).start()
+
+            return jsonify({"msg": "Usuário criado! Verifique seu e-mail para ativar a conta."}), 201
+
+        except Exception as db_error:
+            db.session.rollback()
+            return jsonify({"msg": f"Erro ao salvar no banco: {str(db_error)}"}), 500
+
+    except Exception as e:
+        print(f"Erro fatal no registro: {str(e)}")
+        return jsonify({"msg": f"Erro interno: {str(e)}"}), 500
 
 
 # --- NOVA ROTA: LISTAR TODOS OS USUÁRIOS (Para o User Management) ---
