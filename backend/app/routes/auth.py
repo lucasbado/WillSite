@@ -244,7 +244,7 @@ def listar_todos_usuarios():
     return jsonify(lista), 200
 
 # --- NOVA ROTA: REGISTRAR USUÁRIO PELO ADMIN ---
-@auth_bp.route('/admin/usuarios/registrar', methods=['POST'])
+@auth_bp.route('/admin/criar-usuario', methods=['POST'], strict_slashes=False)
 @jwt_required()
 def registrar_usuario_admin():
     claims = get_jwt()
@@ -419,4 +419,3 @@ def verify_email():
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "Erro ao ativar conta."}), 500
-

@@ -113,7 +113,7 @@ const Configuracoes = () => {
     const handleAdicionarUsuario = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/auth/admin/usuarios/registrar', novoUsuario);
+            await api.post('/auth/admin/criar-usuario', novoUsuario);
             setNovoUsuario({ nome_completo: '', email: '', cpf: '', telefone: '', password: '', role: 'cliente' });
             fetchData();
             alert("Usuário cadastrado com sucesso!");
