@@ -84,8 +84,8 @@ const Register = () => {
         setLoading(true);
         try {
             const response = await api.post('/auth/register', formData);
-            alert("✅ " + response.data.msg);
-            navigate('/login');
+            // Redireciona para a página de confirmação para uma melhor UX
+            navigate('/confirmar-email');
         } catch (err) {
             alert("❌ " + (err.response?.data?.msg || "Erro no cadastro."));
         } finally {

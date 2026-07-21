@@ -21,6 +21,7 @@ import DashboardFinanceiro from './pages/DashboardFinanceiro';
 import ScannerEntrega from './pages/ScannerEntrega';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import ConfirmEmail from './pages/ConfirmEmail';
 
 
 function App() {
@@ -54,6 +55,8 @@ function App() {
         <Route path="/admin/recibos" element={<Recibos />} />
         <Route path="/home/servicos" element={<Servicos />} />
         <Route path="/home/sobre" element={<Sobre />} />
+        <Route path="/confirmar-email" element={<ConfirmEmail />} />
+
         
 
         {/* Rota de fallback (Redireciona qualquer coisa errada para a Home) */}
