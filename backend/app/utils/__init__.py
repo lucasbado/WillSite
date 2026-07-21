@@ -11,15 +11,16 @@ def send_async_email(app, msg):
     Tenta enviar e-mail via API do Resend (Porta 443 - Liberada no Render).
     Se não houver API Key, tenta via SMTP (Gmail).
     """
+    print(f"SGAT DEBUG: Iniciando send_async_email para {msg.recipients}")
     with app.app_context():
         resend_key = os.getenv("RESEND_API_KEY")
+        print(f"SGAT DEBUG: Chave RESEND_API_KEY encontrada? {'Sim' if resend_key else 'Não'}")
         
         if resend_key:
             try:
                 import requests
-                # O Resend exige o sender no formato 'Nome <email@dominio.com>' ou apenas 'email@dominio.com'
-                # Como o Resend gratuito costuma exigir o domínio 'onboarding@resend.dev' se não houver domínio próprio:
                 sender = os.getenv("RESEND_SENDER", "onboarding@resend.dev")
+                print(f"SGAT DEBUG: Tentando enviar via Resend API (Sender: {sender})...")
                 
                 response = requests.post(
                     "https://api.resend.com/emails",
@@ -33,18 +34,19 @@ def send_async_email(app, msg):
                         "subject": msg.subject,
                         "html": msg.html,
                     },
-                    timeout=10
+                    timeout=15
                 )
                 
                 if response.status_code in [200, 201, 202]:
-                    print(f"SGAT LOG: E-mail enviado via API Resend para {msg.recipients}")
+                    print(f"SGAT LOG: E-mail enviado com SUCESSO via Resend para {msg.recipients}")
                     return
                 else:
                     print(f"SGAT ERROR: Resend API falhou ({response.status_code}): {response.text}")
             except Exception as e:
-                print(f"SGAT ERROR: Falha ao conectar na API do Resend: {str(e)}")
+                print(f"SGAT ERROR: Erro ao chamar API do Resend: {str(e)}")
 
         # FALLBACK: SMTP (Gmail)
+        print("SGAT DEBUG: Tentando fallback via SMTP...")
         try:
             from .. import mail
             mail.send(msg)
