@@ -99,7 +99,7 @@ def create_app():
     # Inicialização das Extensões
     # Opção B: Permitir localhost + sua URL do ngrok (Mais seguro)
     CORS(
-        app, resources={r"/api/*": {"origins": "*"}}
+        app, resources={r"/*": {"origins": "*"}}, supports_credentials=True
     )  # Libera geral para teste com ngrok
 
     db.init_app(app)
@@ -126,7 +126,6 @@ def create_app():
     ensure_work_orders_columns(app)
 
     # Logo após criar o app = Flask(__name__)
-
 
     @app.route("/")
     def health_check():
