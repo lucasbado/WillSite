@@ -244,10 +244,18 @@ def register():
     if User.query.filter_by(cpf=data.get("cpf")).first():
         return jsonify({"msg": "Este CPF já está cadastrado"}), 400
 
+    # --- MELHORIA DE ROBUSTEZ ---
+    # Gera um username padrão caso não seja enviado, evitando erros no banco
+    username = data.get("username")
+    if not username and data.get("nome_completo"):
+        username = data.get("nome_completo").split(" ")[0].lower() + str(
+            random.randint(100, 999)
+        )
+
     # Verifique se os nomes batem com o models.py
     novo_usuario = User(
-        username=data.get("username"),  # Em vez de 'name'
-        nome_completo=data.get("nome_completo"),
+        username=username,
+        nome_completo=data.get("nome_completo"),  # Em vez de 'name'
         email=data.get("email"),
         cpf=data.get("cpf"),
         cep=data.get("cep"),
@@ -262,31 +270,41 @@ def register():
         db.session.add(novo_usuario)
         db.session.commit()
 
-        # Envia e-mail de verificação
-        s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
-        token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
+        # --- MELHORIA DE FLUXO ---
+        # O envio de e-mail agora é desacoplado da resposta de sucesso.
+        # Se o e-mail falhar, o usuário ainda recebe a mensagem de sucesso,
+        # e o erro é logado no servidor para o desenvolvedor investigar.
+        try:
+            s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+            token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
 
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-        verify_url = f"{frontend_url}/verify-email?token={token}"
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            verify_url = f"{frontend_url}/verify-email?token={token}"
 
-        msg = Message(
-            "Verificação de E-mail - SGAT",
-            sender=current_app.config.get("MAIL_DEFAULT_SENDER")
-            or current_app.config.get("MAIL_USERNAME"),
-            recipients=[novo_usuario.email],
-            body=f"Olá {novo_usuario.nome_completo},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
-        )
-        mail.send(msg)
+            msg = Message(
+                "Verificação de E-mail - SGAT",
+                sender=current_app.config.get("MAIL_DEFAULT_SENDER")
+                or current_app.config.get("MAIL_USERNAME"),
+                recipients=[novo_usuario.email],
+                body=f"Olá {novo_usuario.nome_completo},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
+            )
+            mail.send(msg)
+        except Exception as email_error:
+            # Loga o erro no console do servidor (Render) para depuração
+            print(
+                f"ALERTA: O envio de e-mail de verificação falhou para {novo_usuario.email}. Erro: {str(email_error)}"
+            )
 
+        # A resposta de sucesso é sempre enviada, melhorando a experiência do usuário.
         return (
             jsonify(
                 {"msg": "Usuário criado! Verifique seu e-mail para ativar a conta."}
             ),
             201,
         )
-    except Exception as e:
+    except Exception as db_error:
         db.session.rollback()
-        return jsonify({"msg": f"Erro ao registrar: {str(e)}"}), 500
+        return jsonify({"msg": f"Erro ao salvar no banco de dados: {str(db_error)}"}), 500
 
 
 # --- NOVA ROTA: LISTAR TODOS OS USUÁRIOS (Para o User Management) ---
