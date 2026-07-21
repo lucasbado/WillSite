@@ -7,17 +7,50 @@ import socket
 
 
 def send_async_email(app, msg):
-    """Função interna para disparar o e-mail em background com log detalhado"""
+    """
+    Tenta enviar e-mail via API do Resend (Porta 443 - Liberada no Render).
+    Se não houver API Key, tenta via SMTP (Gmail).
+    """
     with app.app_context():
+        resend_key = os.getenv("RESEND_API_KEY")
+        
+        if resend_key:
+            try:
+                import requests
+                # O Resend exige o sender no formato 'Nome <email@dominio.com>' ou apenas 'email@dominio.com'
+                # Como o Resend gratuito costuma exigir o domínio 'onboarding@resend.dev' se não houver domínio próprio:
+                sender = os.getenv("RESEND_SENDER", "onboarding@resend.dev")
+                
+                response = requests.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {resend_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "from": f"SGAT <{sender}>",
+                        "to": msg.recipients,
+                        "subject": msg.subject,
+                        "html": msg.html,
+                    },
+                    timeout=10
+                )
+                
+                if response.status_code in [200, 201, 202]:
+                    print(f"SGAT LOG: E-mail enviado via API Resend para {msg.recipients}")
+                    return
+                else:
+                    print(f"SGAT ERROR: Resend API falhou ({response.status_code}): {response.text}")
+            except Exception as e:
+                print(f"SGAT ERROR: Falha ao conectar na API do Resend: {str(e)}")
+
+        # FALLBACK: SMTP (Gmail)
         try:
             from .. import mail
             mail.send(msg)
-            print(f"SGAT LOG: E-mail enviado com sucesso para {msg.recipients}")
-        except Exception as e:
-            import traceback
-            print("SGAT ERROR: Falha crítica no envio de e-mail.")
-            print(f"Detalhe do erro: {str(e)}")
-            traceback.print_exc()
+            print(f"SGAT LOG: E-mail enviado via SMTP para {msg.recipients}")
+        except Exception as smtp_error:
+            print(f"SGAT ERROR: Falha total no envio (SMTP): {str(smtp_error)}")
 
 
 def enviar_notificacao_status(
@@ -162,15 +195,8 @@ def enviar_email_verificacao(user, token):
     </html>
     """
 
-    # PARA TESTE: Envio síncrono com timeout curto
-    from .. import mail
-    try:
-        socket.setdefaulttimeout(10)
-        mail.send(msg)
-        print(f"SGAT DEBUG: E-mail enviado com SUCESSO para {user.email}")
-    except Exception as e:
-        print(f"SGAT DEBUG ERROR: Falha técnica no envio: {str(e)}")
-        raise e 
+    app = current_app._get_current_object()
+    Thread(target=send_async_email, args=(app, msg)).start()
 
 
 def gerar_link_whatsapp(telefone, nome_cliente, os_id, modelo, status, laudo=None):
