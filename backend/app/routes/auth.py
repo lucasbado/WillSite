@@ -357,7 +357,7 @@ def login():
             {
                 "access_token": access_token,
                 "role": user.role,
-                "nome": user.nome_completo,
+                "user_name": user.nome_completo,
             }
         ),
         200,
