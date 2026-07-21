@@ -2,6 +2,7 @@ from flask_mail import Message
 from threading import Thread
 from flask import current_app
 import urllib.parse
+import os
 
 
 def send_async_email(app, msg):
@@ -106,6 +107,56 @@ def enviar_notificacao_status(
             print(f"SGAT LOG: PDF anexado à OS #{os_id}")
         except Exception as e:
             print(f"SGAT ERROR: Falha ao anexar PDF: {e}")
+
+    app = current_app._get_current_object()
+    Thread(target=send_async_email, args=(app, msg)).start()
+
+
+def enviar_email_verificacao(user, token):
+    """
+    Envia o e-mail de ativação de conta de forma assíncrona.
+    """
+    frontend_url = os.getenv("FRONTEND_URL", "https://cidinho.onrender.com")
+    verify_url = f"{frontend_url}/verify-email?token={token}"
+
+    msg = Message(
+        subject="Ative sua conta no SGAT",
+        recipients=[user.email],
+        sender=current_app.config.get("MAIL_DEFAULT_SENDER")
+        or current_app.config.get("MAIL_USERNAME"),
+    )
+
+    msg.html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: sans-serif;">
+        <div style="padding: 40px 10px; background-color: #f8fafc;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 32px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <div style="background: #0f172a; padding: 40px 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -1.5px; font-style: italic; text-transform: uppercase;">
+                        SGAT<span style="color: #2563eb;">.</span>
+                    </h1>
+                </div>
+                <div style="padding: 40px; text-align: center;">
+                    <h2 style="color: #1e293b; margin-top: 0; font-size: 20px;">Bem-vindo, {user.nome_completo}!</h2>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 32px;">
+                        Sua conta no SGAT foi criada com sucesso. Para começar a usar o sistema, por favor ative sua conta clicando no botão abaixo.
+                    </p>
+                    <div style="margin-bottom: 32px;">
+                        <a href="{verify_url}" 
+                           style="display: inline-block; padding: 16px 32px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 16px; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);">
+                            Ativar Minha Conta
+                        </a>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 11px;">
+                        Este link é válido por 24 horas. Se você não solicitou este cadastro, ignore este e-mail.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
     app = current_app._get_current_object()
     Thread(target=send_async_email, args=(app, msg)).start()

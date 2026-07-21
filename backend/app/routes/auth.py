@@ -8,7 +8,7 @@ from flask_jwt_extended import (
 )
 from ..models import User, db, WorkOrder
 from sqlalchemy import func
-from ..utils import enviar_notificacao_status
+from ..utils import enviar_email_verificacao
 import random
 import os
 from itsdangerous import URLSafeTimedSerializer
@@ -278,31 +278,15 @@ def register():
             db.session.add(novo_usuario)
             db.session.commit()
 
-            # Envio de e-mail assíncrono via Thread para não bloquear a resposta
-            from threading import Thread
-            app_obj = current_app._get_current_object()
-
-            def send_async_registration_email(app, user_email, user_name):
-                with app.app_context():
-                    try:
-                        s = URLSafeTimedSerializer(app.config["JWT_SECRET_KEY"])
-                        token = s.dumps(user_email, salt="email-confirm-salt")
-                        
-                        frontend_url = os.getenv("FRONTEND_URL", "https://cidinho.onrender.com")
-                        verify_url = f"{frontend_url}/verify-email?token={token}"
-
-                        msg = Message(
-                            "Verificação de E-mail - SGAT",
-                            sender=app.config.get("MAIL_DEFAULT_SENDER") or app.config.get("MAIL_USERNAME"),
-                            recipients=[user_email],
-                            body=f"Olá {user_name},\n\nBem-vindo ao SGAT! Para ativar sua conta, clique no link abaixo:\n{verify_url}\n\nEste link é válido por 24 horas.",
-                        )
-                        from .. import mail
-                        mail.send(msg)
-                    except Exception as e:
-                        print(f"Erro no envio de e-mail assíncrono: {e}")
-
-            Thread(target=send_async_registration_email, args=(app_obj, novo_usuario.email, novo_usuario.nome_completo)).start()
+            # --- ENVIO DE E-MAIL ASSÍNCRONO VIA UTILITÁRIO ---
+            try:
+                s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
+                token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
+                
+                # Usamos o utilitário centralizado que já lida com Threads e context
+                enviar_email_verificacao(novo_usuario, token)
+            except Exception as email_error:
+                print(f"SGAT ALERTA: Falha ao preparar e-mail de registro: {str(email_error)}")
 
             return jsonify({"msg": "Usuário criado! Verifique seu e-mail para ativar a conta."}), 201
 
