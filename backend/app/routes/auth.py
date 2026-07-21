@@ -18,7 +18,6 @@ from .. import mail
 auth_bp = Blueprint("auth", __name__)
 
 
-
 @auth_bp.route("/perfil", methods=["GET"])
 @jwt_required()
 def obter_perfil():
@@ -265,7 +264,7 @@ def login():
 
     user = User.query.filter_by(email=email).first()
 
-    if not user or not user.check_password(password):
+    if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"msg": "Credenciais inválidas"}), 401
 
     # ==========================================
