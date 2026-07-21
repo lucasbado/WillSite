@@ -270,7 +270,7 @@ def register():
             endereco=data.get("endereco"),
             role="cliente",
             telefone=data.get("telefone"),
-            is_verified=False,
+            is_verified=True, # Ativado por padrão (trava de e-mail desativada)
         )
         novo_usuario.set_password(data.get("password"))
 
@@ -278,17 +278,15 @@ def register():
             db.session.add(novo_usuario)
             db.session.commit()
 
-            # --- ENVIO DE E-MAIL ASSÍNCRONO VIA UTILITÁRIO ---
+            # Tentativa silenciosa de envio de e-mail (não bloqueia nada se falhar)
             try:
                 s = URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
                 token = s.dumps(novo_usuario.email, salt="email-confirm-salt")
-                
-                # Usamos o utilitário centralizado que já lida com Threads e context
                 enviar_email_verificacao(novo_usuario, token)
-            except Exception as email_error:
-                print(f"SGAT ALERTA: Falha ao preparar e-mail de registro: {str(email_error)}")
+            except Exception:
+                pass 
 
-            return jsonify({"msg": "Usuário criado! Verifique seu e-mail para ativar a conta."}), 201
+            return jsonify({"msg": "Usuário criado com sucesso! Você já pode acessar o sistema."}), 201
 
         except Exception as db_error:
             db.session.rollback()
@@ -335,28 +333,6 @@ def login():
 
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"msg": "Credenciais inválidas"}), 401
-
-    # ==========================================
-    # BYPASS DE LOGIN PARA O ADMIN PRINCIPAL
-    # ==========================================
-    if user.email == "admin@sgat.com":
-        # Se a conta do admin estiver marcada como não verificada,
-        # nós a corrigimos silenciosamente no banco agora mesmo.
-        if hasattr(user, "is_verified") and not user.is_verified:
-            user.is_verified = True
-            db.session.commit()
-    # ==========================================
-    # VERIFICAÇÃO PARA OS DEMAIS USUÁRIOS
-    # ==========================================
-    elif hasattr(user, "is_verified") and not user.is_verified:
-        return (
-            jsonify(
-                {
-                    "msg": "Sua conta ainda não foi verificada. Por favor, verifique seu e-mail para ativar seu acesso."
-                }
-            ),
-            403,
-        )
 
     # Se passou por tudo, gera o token e faz o login normalmente
     access_token = create_access_token(

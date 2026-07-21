@@ -8,10 +8,8 @@ import socket
 
 def send_async_email(app, msg):
     """
-    Tenta enviar e-mail via API do Resend.
+    Tenta enviar e-mail de forma silenciosa.
     """
-    import os
-    print(f"SGAT DEBUG: Iniciando thread de e-mail para {msg.recipients}")
     with app.app_context():
         resend_key = os.getenv("RESEND_API_KEY")
         
@@ -19,16 +17,9 @@ def send_async_email(app, msg):
             try:
                 import requests
                 sender = os.getenv("RESEND_SENDER", "onboarding@resend.dev")
+                destinatario = msg.recipients[0] if isinstance(msg.recipients, list) and len(msg.recipients) > 0 else msg.recipients
                 
-                # Garante que o destinatário seja uma string (Resend prefere assim para e-mail único)
-                if isinstance(msg.recipients, list) and len(msg.recipients) > 0:
-                    destinatario = msg.recipients[0]
-                else:
-                    destinatario = msg.recipients
-
-                print(f"SGAT DEBUG: Chamando API Resend (Para: {destinatario}, De: {sender})")
-                
-                response = requests.post(
+                requests.post(
                     "https://api.resend.com/emails",
                     headers={
                         "Authorization": f"Bearer {resend_key}",
@@ -40,25 +31,17 @@ def send_async_email(app, msg):
                         "subject": msg.subject,
                         "html": msg.html,
                     },
-                    timeout=20
+                    timeout=15
                 )
-                
-                if response.status_code in [200, 201, 202]:
-                    print(f"SGAT LOG: E-mail enviado com SUCESSO via Resend!")
-                    return
-                else:
-                    print(f"SGAT ERROR: Resend API recusou o e-mail ({response.status_code}): {response.text}")
-            except Exception as e:
-                print(f"SGAT ERROR: Erro inesperado na thread: {str(e)}")
+            except Exception:
+                pass
 
-        # FALLBACK: SMTP (Gmail)
-        print("SGAT DEBUG: Tentando fallback via SMTP...")
+        # FALLBACK: SMTP (Silencioso)
         try:
             from .. import mail
             mail.send(msg)
-            print(f"SGAT LOG: E-mail enviado via SMTP")
-        except Exception as smtp_error:
-            print(f"SGAT ERROR: Falha total no envio (SMTP): {str(smtp_error)}")
+        except Exception:
+            pass
 
 
 def enviar_notificacao_status(
