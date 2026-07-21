@@ -18,40 +18,6 @@ from .. import mail
 auth_bp = Blueprint("auth", __name__)
 
 
-@auth_bp.route("/login", methods=["POST"])
-def login():
-    data = request.get_json()
-    user = User.query.filter_by(email=data.get("email")).first()
-
-    if user and check_password_hash(user.password_hash, data.get("password")):
-        if not user.is_verified:
-            return (
-                jsonify(
-                    {
-                        "msg": "Sua conta ainda não foi verificada. Por favor, verifique seu e-mail para ativar seu acesso."
-                    }
-                ),
-                403,
-            )
-
-        # Adicionamos o "role" no identity para facilitar no Front-end e Chatbot
-        access_token = create_access_token(
-            identity=str(user.id), additional_claims={"role": user.role}
-        )
-        return (
-            jsonify(
-                {
-                    "access_token": access_token,
-                    "role": user.role,
-                    "user_name": user.username,
-                    "user_id": user.id,
-                }
-            ),
-            200,
-        )
-
-    return jsonify({"msg": "E-mail ou senha inválidos"}), 401
-
 
 @auth_bp.route("/perfil", methods=["GET"])
 @jwt_required()
