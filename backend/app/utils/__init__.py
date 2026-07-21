@@ -3,6 +3,7 @@ from threading import Thread
 from flask import current_app
 import urllib.parse
 import os
+import socket
 
 
 def send_async_email(app, msg):
@@ -161,14 +162,15 @@ def enviar_email_verificacao(user, token):
     </html>
     """
 
-    # PARA TESTE: Envio síncrono (sem Thread) para forçar o erro aparecer nos logs/tela
+    # PARA TESTE: Envio síncrono com timeout curto
     from .. import mail
     try:
+        socket.setdefaulttimeout(10)
         mail.send(msg)
         print(f"SGAT DEBUG: E-mail enviado com SUCESSO para {user.email}")
     except Exception as e:
-        print(f"SGAT DEBUG ERROR: Falha ao enviar e-mail síncrono: {str(e)}")
-        raise e # Força o erro 500 para vermos a mensagem técnica
+        print(f"SGAT DEBUG ERROR: Falha técnica no envio: {str(e)}")
+        raise e 
 
 
 def gerar_link_whatsapp(telefone, nome_cliente, os_id, modelo, status, laudo=None):
