@@ -10,6 +10,31 @@ class AssistantBucket(db.Model):
     count = db.Column(db.Integer, nullable=False, default=0)
 
 
+class RepairOffering(db.Model):
+    __tablename__ = 'repair_offerings'
+    id = db.Column(db.Integer, primary_key=True)
+    model = db.Column(db.String(100), nullable=False)
+    model_key = db.Column(db.String(100), nullable=False)
+    service = db.Column(db.String(30), nullable=False)
+    inventory_item_id = db.Column(db.Integer, db.ForeignKey('inventory_items.id', ondelete='SET NULL'), nullable=True)
+    labor_price = db.Column(db.Numeric(10, 2), nullable=True)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    inventory_item = db.relationship('InventoryItem')
+    __table_args__ = (db.UniqueConstraint('model_key', 'service', name='uq_offering_model_service'),)
+
+
+class QuoteDemand(db.Model):
+    """Demanda agregada, sem guardar mensagens ou dados pessoais dos clientes."""
+    __tablename__ = 'quote_demands'
+    id = db.Column(db.Integer, primary_key=True)
+    model = db.Column(db.String(100), nullable=False)
+    model_key = db.Column(db.String(100), nullable=False)
+    service = db.Column(db.String(30), nullable=False)
+    first_seen = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('model_key', 'service', name='uq_quote_demand_model_service'),)
+
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)

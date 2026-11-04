@@ -13,9 +13,44 @@ const send = content => {
     fireEvent.change(screen.getByLabelText('Sua mensagem para a Cidi'), { target: { value: content } });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar mensagem' }));
 };
+
+test('início distingue conversa livre e formulário antes de oferecer campo de mensagem', async () => {
+    api.get.mockResolvedValue({ data: { ai_available: true } });
+    render(<IntakeChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
+    expect(await screen.findByRole('button', { name: /Conversar com a Cidi/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Sua mensagem para a Cidi')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Conversar com a Cidi/ }));
+    expect(screen.queryByLabelText('Sua mensagem para a Cidi')).not.toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Concordo, conversar com IA' }));
+    expect(screen.getByLabelText('Sua mensagem para a Cidi')).toBeInTheDocument();
+});
+
+test('relato e modelo da conversa são usados no orçamento e preservados ao continuar a visita', async () => {
+    api.get.mockResolvedValue({ data: { ai_available: true } });
+    api.post.mockResolvedValueOnce({ data: { mode: 'ai', reply: 'Posso consultar a estimativa para essa tela.', modelo: 'S23', problema: 'Problema na tela', data_entrega: '' } });
+    render(<IntakeChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Conversar com a Cidi/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Concordo, conversar com IA' }));
+    send('Tô com problemas na tela do meu S23');
+    await screen.findByText('Posso consultar a estimativa para essa tela.');
+    fireEvent.click(screen.getByRole('button', { name: 'Ver estimativa de orçamento' }));
+    expect(screen.getByLabelText('Modelo para orçamento')).toHaveValue('S23');
+    fireEvent.change(screen.getByLabelText('Serviço para orçamento'), { target: { value: 'tela' } });
+    api.post.mockResolvedValueOnce({ data: { status: 'pending', model: 'Samsung Galaxy S23', team_notified: true } });
+    fireEvent.click(screen.getByRole('button', { name: 'Consultar peça + mão de obra' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Combinar visita para avaliação' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Escolher dia e revisar meu pedido' }));
+    expect(screen.getByLabelText('Aparelho')).toHaveValue('Samsung Galaxy S23');
+    expect(screen.getByLabelText('O que está acontecendo?')).toHaveValue('Problema na tela');
+    expect(api.post.mock.calls.every(call => call[0] !== '/os/abrir')).toBe(true);
+});
 async function review() {
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
     await waitFor(() => expect(api.get).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /Preencher por etapas/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Levar meu aparelho' }));
     send('Samsung Galaxy A15'); send('Não carrega desde ontem');
     fireEvent.change(screen.getByLabelText('Dia e horário preferidos (Brasília)'), { target: { value: future() } });
@@ -60,7 +95,7 @@ test('IA exige escolha do usuário e nunca abre OS por mensagem', async () => {
     render(<IntakeChat />);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
     await waitFor(() => expect(api.get).toHaveBeenCalled());
-    fireEvent.click(await screen.findByRole('button', { name: 'Conversar do meu jeito' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Conversar com a Cidi/ }));
     expect(api.post).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Concordo, conversar com IA' }));
     send('Meu A15 não carrega');
@@ -76,7 +111,7 @@ test('esgotamento da cascata continua por etapas e mantém relato não processad
     render(<IntakeChat />);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
     await waitFor(() => expect(api.get).toHaveBeenCalled());
-    fireEvent.click(await screen.findByRole('button', { name: 'Conversar do meu jeito' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Conversar com a Cidi/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Concordo, conversar com IA' }));
     send('Galaxy A15');
     await screen.findByText(/Continuamos por etapas/);
@@ -91,6 +126,7 @@ test('fechar por Escape devolve foco e reabrir preserva conversa', async () => {
     const launcher = screen.getByRole('button', { name: 'Abrir atendimento da Cidi' });
     fireEvent.click(launcher);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /Preencher por etapas/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Como funciona?' }));
     const transcript = within(screen.getByRole('log')).getAllByText(/A equipe confirma a visita/);
     expect(transcript).toHaveLength(1);
@@ -106,6 +142,7 @@ test('palavras de dúvidas dentro do relato não substituem os dados coletados',
     render(<IntakeChat />);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
     await waitFor(() => expect(api.get).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /Preencher por etapas/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Levar meu aparelho' }));
     send('Galaxy A15 - teste de atendimento');
     expect(screen.getByRole('log')).toHaveTextContent('O que acontece com ele?');

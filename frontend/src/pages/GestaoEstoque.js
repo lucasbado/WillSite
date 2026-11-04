@@ -5,6 +5,7 @@ import api from './api';
 import LoadNotice from '../components/LoadNotice';
 import { requestError } from '../utils/requestError';
 import notify from '../utils/notifications';
+import QuoteCatalog from '../components/QuoteCatalog';
 
 const GestaoEstoque = () => {
     const navigate = useNavigate();
@@ -181,6 +182,7 @@ const GestaoEstoque = () => {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 md:pt-10 relative z-10">
+                <QuoteCatalog inventory={estoque} onEditPart={abrirModalEdicao} />
 
                 {/* --- TERMINAL DE COMANDO (FILTROS) --- */}
                 <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-blue-900/20 mb-8 md:mb-12 relative overflow-hidden border border-slate-200 dark:border-blue-500/20 transition-all">

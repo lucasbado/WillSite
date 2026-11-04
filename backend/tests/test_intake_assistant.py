@@ -166,6 +166,14 @@ class IntakeAssistantTests(unittest.TestCase):
             self.assertEqual(result['mode'], 'ai')
             self.assertEqual(result['data_entrega'], '2026-11-05T10:00')
 
+    def test_ai_cannot_present_invented_money_as_catalog_quote(self):
+        self.enable()
+        with patch('app.services.assistant.requests.post', return_value=completion(reply='Trocar sua tela custa R$ 250.')):
+            result = self.chat().json
+            self.assertEqual(result['mode'], 'ai')
+            self.assertNotIn('250', result['reply'])
+            self.assertIn('Ver estimativa', result['reply'])
+
 
 if __name__ == '__main__':
     unittest.main()

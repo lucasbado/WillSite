@@ -10,7 +10,7 @@ def enforce_access():
         return None
     blueprint = request.blueprint
     admin_route = (
-        (blueprint in {"auth", "os"} and "/admin/" in request.path)
+        (blueprint in {"auth", "os", "quotes"} and "/admin/" in request.path)
         or blueprint in {"inventory", "vendors"}
         or (blueprint == "devices" and request.method != "GET")
         or request.endpoint in {"os.definir_pronto_retirada", "os.finalizar_os"}

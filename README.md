@@ -25,6 +25,18 @@ npm start
 
 Abra `http://localhost:3000`. O frontend usa `/api` e o proxy encaminha ao backend na porta **5001**. Para testar o build servido pelo próprio Flask, execute `npm run build` e abra `http://127.0.0.1:5001`.
 
+## Orçamentos da Cidi
+
+A abertura do chat diferencia **conversa com IA** (após consentimento para envio ao Groq) e **formulário por etapas**. O campo de mensagem só aparece depois da escolha. Modelo e sintomas identificados na conversa são reaproveitados na consulta de orçamento.
+
+Em **Administrador → Estoque → Orçamentos e pendências da Cidi**, cadastre o modelo completo, serviço, peça compatível e mão de obra. A estimativa é calculada no servidor com **preço de venda da peça + mão de obra daquele modelo/serviço**, em decimal. Custo de compra não é exibido ao cliente nem enviado ao Groq. Mão de obra vazia fica pendente; zero representa isenção explícita. A ligação da peça ao modelo e serviço é responsabilidade do administrador; a IA não escolhe peças por semelhança.
+
+S23, S23 Plus e S23 Ultra são modelos distintos. Aliases de marca/linha e tags cadastradas em DeviceModel podem auxiliar a busca; correspondências ambíguas exigem escolha do cliente. Inicialmente o catálogo oferece tela, bateria, conector de carga e tampa traseira. Outros reparos continuam dependendo da avaliação da equipe.
+
+Sem serviço cadastrado, peça vinculada, estoque ou preço válido, nenhum total incompleto é mostrado. Consultas de clientes autenticados e verificados registram demandas agregadas por modelo/serviço; visitantes podem consultar estimativas sem gerar pendências persistentes. O administrador vê demandas recentes (até 500 combinações) e peças sem preço de venda. As pendências são recalculadas com o cadastro atual e desaparecem após a correção. O painel verifica avisos a cada minuto e há atualização manual no estoque.
+
+Consultar orçamento não cria OS, não baixa/reserva estoque e não altera finanças. A estimativa depende da avaliação técnica. A migração **0004** adiciona apenas repair_offerings e quote_demands; não preenche preços nem gera dados de demonstração em produção.
+
 ## Permissões e retirada
 
 - Rotas administrativas, estoque e fornecedores exigem administrador. Escrita de modelos também.

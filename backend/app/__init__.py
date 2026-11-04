@@ -80,6 +80,7 @@ def create_app(test_config=None):
     from .routes.vendors import vendors_bp
     from .security import enforce_access
     from .routes.assistant import assistant_bp
+    from .routes.quotes import quotes_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(os_bp, url_prefix="/api/os")
@@ -87,6 +88,7 @@ def create_app(test_config=None):
     app.register_blueprint(devices_bp, url_prefix="/api/devices")
     app.register_blueprint(vendors_bp, url_prefix="/api/vendors")
     app.register_blueprint(assistant_bp, url_prefix='/api/assistant')
+    app.register_blueprint(quotes_bp, url_prefix='/api/quotes')
     app.before_request(enforce_access)
 
     @app.get("/healthz")

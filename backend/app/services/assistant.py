@@ -20,6 +20,11 @@ SCHEMA = {'type': 'object', 'properties': {key: {'type': 'string'} for key in FI
 INSTRUCTIONS = '''Você é Cidi, assistente virtual de primeiro atendimento da Cidinho.
 Fale português simples e acolhedor. Até 3 frases curtas, UMA pergunta por vez.
 Ajude a identificar modelo do aparelho, sintomas e preferência de dia/hora para DEIXÁ-LO na loja.
+Extraia juntos modelo e sintomas quando vierem na mesma frase: "tela do meu s23"
+já informa modelo S23 e problema na tela. Não pergunte de novo por informação fornecida.
+Se o cliente pedir preço, explique que o botão "Ver estimativa de orçamento" consulta
+o cadastro da loja (peça + mão de obra); ajude a esclarecer o modelo e o serviço desejado.
+Não calcule nem escreva valores monetários: o site mostra o orçamento conferido pelo servidor.
 Não diagnostique nem afirme serviços, preços, peças originais, vedação, garantia, endereço,
 horários de funcionamento, disponibilidade de vagas ou prazo: dependem da equipe técnica.
 Explique: cliente solicita visita; equipe confirma horário, recebe aparelho e avalia;
@@ -121,6 +126,8 @@ def validate_result(result):
         raise ValueError('Campos inválidos')
     if not result['reply'].strip():
         raise ValueError('Resposta vazia')
+    if re.search(r'R\$|\bBRL\b|\b\d+(?:[.,]\d+)?\s*(?:reais|real)\b', result['reply'], re.I):
+        result = {**result, 'reply': 'Para consultar valores, toque em “Ver estimativa de orçamento”. O site confere o preço da peça e a mão de obra cadastrados para seu modelo e serviço.'}
     if result['data_entrega']:
         datetime.strptime(result['data_entrega'], '%Y-%m-%dT%H:%M')
     return result

@@ -5,6 +5,7 @@ import api from './api';
 import LoadNotice from '../components/LoadNotice';
 import MoneyInput from '../components/MoneyInput';
 import RepairReportAssistant from '../components/RepairReportAssistant';
+import { QuoteAlertSummary } from '../components/QuoteCatalog';
 import { moneyValue } from '../utils/money';
 import { requestError } from '../utils/requestError';
 import { orderMatches, matchesAdminFilter } from '../utils/workOrders';
@@ -697,6 +698,7 @@ const DashboardAdmin = () => {
                 </header>
 
                 <LoadNotice error={loadError} onRetry={carregarDados} loading={loading} />
+                <QuoteAlertSummary />
                 <div className="mb-6 flex flex-wrap gap-2" aria-label="Filtrar ordens por status">
                     {filterOptions.map(([key, label]) => (
                         <button type="button" key={key} aria-pressed={statusFilter === key} onClick={() => setStatusFilter(key)}
