@@ -201,7 +201,7 @@ def respond(messages, draft):
             elif match['status'] in {'suggested', 'ambiguous'}:
                 result['model_match'] = match
                 result['reply'] = 'Encontrei modelos que podem corresponder ao que você escreveu. Escolha abaixo qual é o seu aparelho.'
-            if re.search(r'or[çc]amento|pre[çc]o|\bvalor\b|quanto.*(?:custa|fica|sai)', messages[-1]['content'], re.I):
+            if 'model_match' not in result and re.search(r'or[çc]amento|pre[çc]o|\bvalor\b|quanto.*(?:custa|fica|sai)', messages[-1]['content'], re.I):
                 result['reply'] = ('Para consultar o valor, confira o modelo e escolha o serviço em “Ver estimativa de orçamento”. A consulta usa o preço da peça e a mão de obra cadastrados pela equipe.'
                     if result['modelo'] else 'Posso ajudar a consultar o orçamento. Qual é o modelo completo do aparelho?')
             return result

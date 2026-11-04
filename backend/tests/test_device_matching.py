@@ -103,6 +103,14 @@ class DeviceMatchingTests(unittest.TestCase):
             context = provider.call_args.kwargs['json']['messages'][1]['content']
             self.assertIn('Samsung Galaxy S23', context)
 
+    def test_quote_intent_preserves_question_to_confirm_similar_model(self):
+        self.device()
+        self.app.config.update(CHAT_AI_ENABLED=True, GROQ_API_KEY='test-key', GROQ_MODELS=['openai/gpt-oss-20b'])
+        with patch('app.services.assistant.requests.post', return_value=completion(modelo='galaxi s23')):
+            result = self.client.post('/api/assistant/message', json={'consent':True,'draft':{},'messages':[{'role':'user','content':'Queria orçamento do galaxi s23'}]}).json
+            self.assertEqual(result['model_match']['options'], ['Samsung Galaxy S23'])
+            self.assertIn('Escolha abaixo', result['reply'])
+
     def test_model_endpoint_validates_length(self):
         self.device()
         self.assertEqual(self.client.get('/api/devices/identificar?q=s23').json['status'], 'matched')
