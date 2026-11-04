@@ -1,14 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-    PlusCircle, ClipboardList, Clock, CheckCircle, X,
-    Trash2, Package, Settings, LogOut, Smartphone,
-    Calendar, AlertCircle, ChevronRight, Cpu, ShieldCheck, MessageCircle, Printer, ArrowLeft,
-    ShieldAlert, Zap, Power, Usb, Camera, ChevronDown, CheckCircle2
-} from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { PlusCircle, ClipboardList, Clock, CheckCircle, X, Trash2, Package, Settings, LogOut, Smartphone, Calendar, AlertCircle, ChevronRight, Cpu, ShieldCheck, Printer, ArrowLeft, ShieldAlert, Zap, Power, Usb, Camera, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import DeliveryScanner from '../components/DeliveryScanner';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
+import { statusStage } from '../utils/workOrders';
+import { intakeError, localDateTime, newIntakeId } from '../utils/intake';
 import notify from '../utils/notifications';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 const DashboardCliente = () => {
     const navigate = useNavigate();
@@ -18,107 +17,91 @@ const DashboardCliente = () => {
     const [formData, setFormData] = useState({ modelo: '', problema: '', data_entrega: '' });
     const [loading, setLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [cameraAtiva, setCameraAtiva] = useState(false);
     const [verDetalhesOS, setVerDetalhesOS] = useState(null);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
-    const [scannerStatus, setScannerStatus] = useState("Aguardando leitura...");
-    const scannerRef = useRef(null);
+    const [historyLoading, setHistoryLoading] = useState(true);
+    const [historyError, setHistoryError] = useState('');
+    const [modelsError, setModelsError] = useState('');
+    const [lastUpdated, setLastUpdated] = useState(null);
+    const [view, setView] = useState('ativos');
+    const historyBusy = useRef(false);
+    const intakeRequestId = useRef(newIntakeId());
+    const submitBusy = useRef(false);
 
     const handleLogout = () => {
         sessionStorage.clear();
         navigate('/');
     };
 
-    const fetchModelos = async () => {
+    const fetchModelos = useCallback(async () => {
         try {
             const res = await api.get('/devices/listar');
             setListaModelos(res.data);
-        } catch (err) { console.error("Erro modelos:", err); }
-    };
+            setModelsError('');
+        } catch (err) { setModelsError(requestError(err, 'Não foi possível carregar os modelos.')); }
+    }, []);
 
-    const fetchHistorico = async () => {
+    const fetchHistorico = useCallback(async () => {
+        if (historyBusy.current) return;
+        historyBusy.current = true;
+        setHistoryLoading(true);
         try {
             const res = await api.get('/os/meu-historico');
-            setHistorico(res.data);
-        } catch (err) { console.error("Erro histórico:", err); }
-    };
+            const orders = [...res.data].sort((a, b) => b.id - a.id);
+            setHistorico(orders);
+            setVerDetalhesOS(previous => previous ? orders.find(order => order.id === previous.id) || null : null);
+            setHistoryError('');
+            setLastUpdated(new Date());
+        } catch (err) { setHistoryError(requestError(err, 'Não foi possível consultar seus reparos.')); }
+        finally { historyBusy.current = false; setHistoryLoading(false); }
+    }, []);
 
-    useEffect(() => { fetchHistorico(); fetchModelos(); }, []);
+    useEffect(() => { fetchHistorico(); fetchModelos(); }, [fetchHistorico, fetchModelos]);
+    useEffect(() => {
+        const refresh = () => { if (!document.hidden) fetchHistorico(); };
+        const interval = setInterval(refresh, 30000);
+        window.addEventListener('focus', refresh);
+        window.addEventListener('willsite:orders-updated', refresh);
+        document.addEventListener('visibilitychange', refresh);
+        return () => { clearInterval(interval); window.removeEventListener('focus', refresh); window.removeEventListener('willsite:orders-updated', refresh); document.removeEventListener('visibilitychange', refresh); };
+    }, [fetchHistorico]);
 
-    const STATUS_WEIGHTS = {
-        'pendente': 1,
-        'aguardando agendamento': 1,
-        'recebido': 1,
-        'agendado': 2,
-        'em manutenção': 2,
-        'em manutencao': 2,
-        'pronto para retirada': 3,
-        'liberado': 3,
-        'entregue': 4,      // Verifique se é este o nome no banco
-        'finalizado': 4,    // Verifique se é este
-        'concluído': 4,
-        'Concluído': 4,
-        'concluido': 4
-    };
-
-    // 2. Obtenha o peso do status atual da OS selecionada
     const currentStatus = verDetalhesOS?.status?.toLowerCase().trim() || '';
-    const currentWeight = STATUS_WEIGHTS[currentStatus] || 0;
-
-    // 3. Transforme em booleanos de "Caminho Percorrido"
+    const currentWeight = statusStage(verDetalhesOS?.status);
     const isRecebido = currentWeight >= 1;
     const isEmReparo = currentWeight >= 2;
     const isPronto = currentWeight >= 3;
     const isEntregue = currentWeight >= 4;
+    const activeCount = historico.filter(order => statusStage(order.status) < 4).length;
+    const readyCount = historico.filter(order => statusStage(order.status) === 3).length;
+    const historyCount = historico.filter(order => statusStage(order.status) === 4).length;
+    const visibleOrders = historico.filter(order => view === 'historico' ? statusStage(order.status) === 4 :
+        view === 'retirada' ? statusStage(order.status) === 3 : statusStage(order.status) < 4);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitBusy.current) return;
+        const payload = { modelo: formData.modelo, problema: formData.problema,
+            data_entrega: formData.data_entrega_dia && formData.data_entrega_hora
+                ? `${formData.data_entrega_dia}T${formData.data_entrega_hora}` : formData.data_entrega };
+        const invalid = intakeError(payload);
+        if (invalid) { notify.error(invalid); return; }
+        submitBusy.current = true;
         setLoading(true);
         try {
-            await api.post('/os/abrir', formData);
+            await api.post('/os/abrir', { ...payload, intake_request_id: intakeRequestId.current });
+            intakeRequestId.current = newIntakeId();
+            notify.success('Solicitação recebida. Aguarde a confirmação do horário pela equipe.');
             setIsModalOpen(false);
             setFormData({ modelo: '', problema: '', data_entrega: '', valor_servico: 0 });
             fetchHistorico();
-        } catch (err) { notify.error("Erro ao abrir OS."); }
-        finally { setLoading(false); }
-    };
-
-    const onScanSuccess = async (decodedText) => {
-        if (loading) return;
-        setLoading(true);
-
-        try {
-            // 1. PARA O SCANNER PRIMEIRO DE TUDO (Antes da API)
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                await scannerRef.current.stop();
-                // Não dê .clear() aqui, deixe o useEffect do cleanup cuidar disso
-            }
-
-            const data = JSON.parse(decodedText);
-
-            // 2. CHAMADA DE API
-            const res = await api.post('/os/validar-qr-entrega', {
-                os_id: data.os_id,
-                token: data.token
-            });
-
-            notify.success("Entrega Confirmada!");
-            setIsScannerOpen(false);
-            window.location.reload();
-
-        } catch (err) {
-            console.error("Erro no Processo:", err);
-
-            // Se deu erro 405, mostre na tela mas NÃO feche o modal bruscamente
-            setScannerStatus(err.response?.status === 405 ? "❌ ERRO 405: SERVIDOR RECUSOU" : "❌ QR INVÁLIDO");
-
-            // 3. SE DEU ERRO, PRECISAMOS REINICIAR O SCANNER OU FECHAR COM SEGURANÇA
-            setTimeout(() => setLoading(false), 2000);
-        }
+        } catch (err) { notify.error(requestError(err, "Erro ao abrir OS.")); }
+        finally { submitBusy.current = false; setLoading(false); }
     };
 
     const handleExcluir = async (id) => {
-        if (window.confirm("Deseja realmente cancelar esta solicitação?")) {
+        const confirm = await notify.confirm("Cancelar Solicitação", "Deseja realmente cancelar esta solicitação?");
+        if (confirm) {
             try {
                 await api.patch(`/os/excluir/${id}`);
                 fetchHistorico();
@@ -128,34 +111,6 @@ const DashboardCliente = () => {
             }
         }
     };
-
-    useEffect(() => {
-        if (isScannerOpen) {
-            const html5QrCode = new Html5Qrcode("reader");
-            scannerRef.current = html5QrCode;
-
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                onScanSuccess
-            ).then(() => setCameraAtiva(true))
-                .catch(err => setScannerStatus("Erro ao acessar câmera"));
-        }
-
-        return () => {
-            if (scannerRef.current) {
-                const fechar = async () => {
-                    if (scannerRef.current.isScanning) {
-                        await scannerRef.current.stop();
-                    }
-                    scannerRef.current.clear(); // Limpa o elemento HTML
-                    scannerRef.current = null;
-                };
-                fechar();
-            }
-        }
-    });
-
 
     return (
         // Fundo da Página: bg-slate-50 | Dark: bg-[#020617]
@@ -200,7 +155,7 @@ const DashboardCliente = () => {
                         </h2>
                         <p className="text-slate-500 dark:text-slate-400 font-medium text-sm md:text-base">
                             Você tem <span className="text-blue-600 dark:text-blue-500 font-black">
-                                {historico.filter(o => o.status !== 'Concluído').length} reparos
+                                {activeCount} reparos
                             </span> ativos hoje.
                         </p>
                     </div>
@@ -253,7 +208,7 @@ const DashboardCliente = () => {
                         <div>
                             <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest italic leading-none">Prontos</p>
                             <p className="text-3xl md:text-4xl font-black text-white tracking-tighter leading-none mt-2 md:mt-1 italic">
-                                {historico.filter(o => o.status === 'Concluído').length}
+                                {readyCount}
                             </p>
                         </div>
                     </div>
@@ -265,23 +220,36 @@ const DashboardCliente = () => {
                         Seus Dispositivos
                     </h3>
 
+                    <div className="mb-5 flex flex-wrap items-center gap-2" aria-label="Filtrar reparos">
+                        {[['ativos', 'Em andamento', activeCount], ['retirada', 'Aguardando retirada', readyCount], ['historico', 'Histórico', historyCount]].map(([key, label, count]) => (
+                            <button key={key} type="button" aria-pressed={view === key} onClick={() => setView(key)}
+                                className={`rounded-2xl px-4 py-3 text-sm font-bold ${view === key ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}`}>
+                                {label} ({count})
+                            </button>
+                        ))}
+                    </div>
+                    <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                        <button type="button" disabled={historyLoading} onClick={fetchHistorico} className="font-bold text-blue-600 disabled:opacity-50">Atualizar reparos</button>
+                        {lastUpdated && <span>Atualizado às {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>}
+                    </div>
+                    <LoadNotice error={historyError} loading={historyLoading} onRetry={fetchHistorico} />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {historico.length === 0 ? (
+                        {visibleOrders.length === 0 && !historyLoading && !historyError ? (
                             /* --- ESTADO VAZIO --- */
                             <div className="col-span-1 lg:col-span-2 bg-white dark:bg-slate-900 rounded-[3rem] p-12 md:p-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 animate-in fade-in duration-500">
                                 <AlertCircle size={48} className="text-slate-200 dark:text-slate-800 mx-auto mb-4" />
                                 <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-xs">
-                                    Nenhuma ordem de serviço encontrada.
+                                    {view === 'historico' ? 'Você ainda não possui entregas concluídas.' : view === 'retirada' ? 'Nenhum aparelho aguardando retirada.' : 'Você não possui reparos em andamento.'}
                                 </p>
                             </div>
                         ) : (
-                            historico.map(os => (
+                            visibleOrders.map(os => (
                                 <div
                                     key={os.id}
                                     className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl dark:hover:shadow-blue-900/10 transition-all group overflow-hidden relative"
                                 >
                                     {/* Badge de Status: Emerald ou Blue */}
-                                    <div className={`absolute top-6 right-6 md:top-8 md:right-8 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors ${os.status === 'Concluído'
+                                    <div className={`absolute top-6 right-6 md:top-8 md:right-8 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors ${statusStage(os.status) === 4
                                         ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
                                         : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 animate-pulse'
                                         }`}>
@@ -290,7 +258,7 @@ const DashboardCliente = () => {
 
                                     <div className="flex flex-col md:flex-row gap-6 items-start">
                                         {/* Ícone Dispositivo */}
-                                        <div className={`p-5 rounded-[2rem] transition-colors ${os.status === 'Concluído'
+                                        <div className={`p-5 rounded-[2rem] transition-colors ${statusStage(os.status) === 4
                                             ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'
                                             : 'bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-600'
                                             }`}>
@@ -308,24 +276,27 @@ const DashboardCliente = () => {
                                             {/* Timeline de Status */}
                                             <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl md:rounded-3xl border border-slate-100 dark:border-slate-800 mb-6">
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`mt-1.5 w-3 h-3 rounded-full shrink-0 ${os.status === 'Concluído'
+                                                    <div className={`mt-1.5 w-3 h-3 rounded-full shrink-0 ${statusStage(os.status) === 4
                                                         ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
                                                         : 'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)] animate-ping'
                                                         }`}></div>
 
                                                     <div className="flex flex-col">
-                                                        <p className={`text-[10px] md:text-xs font-black uppercase tracking-tighter ${os.status === 'Concluído' ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'
+                                                        <p className={`text-[10px] md:text-xs font-black uppercase tracking-tighter ${statusStage(os.status) === 4 ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'
                                                             }`}>
-                                                            {os.status === 'Concluído' ? 'Reparo Finalizado' : 'Manutenção Técnica em Curso'}
+                                                            {statusStage(os.status) === 4 ? 'Aparelho entregue' : statusStage(os.status) === 3 ? 'Aguardando sua retirada' : statusStage(os.status) === 1 ? 'Solicitação recebida' : 'Manutenção técnica em curso'}
                                                         </p>
                                                         <p className="text-[10px] md:text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1 leading-relaxed uppercase">
-                                                            {os.status === 'Concluído'
-                                                                ? `Retirada disponível: ${os.data_agendada_admin}`
-                                                                : os.data_agendada_admin !== "Em análise técnica"
-                                                                    ? `Previsão: ${os.data_agendada_admin}`
-                                                                    : 'Aparelho em triagem no laboratório técnico.'
-                                                            }
+                                                            {statusStage(os.status) === 4
+                                                                ? `Entrega confirmada${os.data_finalizacao ? ` em ${os.data_finalizacao}` : '.'}`
+                                                                : statusStage(os.status) === 3
+                                                                    ? 'Seu aparelho está pronto. Combine a retirada e valide o QR no balcão.'
+                                                                    : os.scheduled_for
+                                                                        ? `Previsão: ${os.data_agendada_admin}`
+                                                                        : 'Aguardando agendamento da assistência.'}
                                                         </p>
+                                                        {statusStage(os.status) === 1 && os.previsao_cliente && os.previsao_cliente !== 'Não informada' &&
+                                                            <p className="mt-2 text-sm text-blue-700 dark:text-blue-300">Visita solicitada: {os.previsao_cliente}. Aguarde a confirmação da equipe.</p>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -399,6 +370,7 @@ const DashboardCliente = () => {
                             </h2>
 
                             <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8 pb-10 md:pb-0">
+                            <LoadNotice error={modelsError} onRetry={fetchModelos} />
                                 {/* Input Modelo com Sugestão Visual Tech */}
                                 <div className="space-y-3 group relative">
                                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
@@ -527,7 +499,7 @@ const DashboardCliente = () => {
                                             <Calendar size={14} className="text-blue-500" /> Janela de Entrega na Loja
                                         </label>
                                         <span className="text-[9px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full italic uppercase">
-                                            Sistema_Agendamento_v1
+                                            Sujeito à confirmação
                                         </span>
                                     </div>
 
@@ -540,7 +512,7 @@ const DashboardCliente = () => {
                                                 const diaSemana = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
                                                 const diaMes = date.getDate();
                                                 const isDomingo = date.getDay() === 0;
-                                                const isSelected = formData.data_entrega_dia === date.toISOString().split('T')[0];
+                                                const isSelected = formData.data_entrega_dia === localDateTime(date).slice(0, 10);
 
                                                 if (isDomingo) return null;
 
@@ -549,7 +521,7 @@ const DashboardCliente = () => {
                                                         key={i}
                                                         type="button"
                                                         onClick={() => {
-                                                            setFormData({ ...formData, data_entrega_dia: date.toISOString().split('T')[0], data_entrega_hora: '' });
+                                                            setFormData({ ...formData, data_entrega_dia: localDateTime(date).slice(0, 10), data_entrega_hora: '' });
                                                         }}
                                                         className={`flex flex-col items-center min-w-[70px] py-4 rounded-2xl border-2 transition-all snap-center active:scale-90 ${isSelected
                                                             ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-900/20'
@@ -571,7 +543,7 @@ const DashboardCliente = () => {
                                         {formData.data_entrega_dia && (
                                             <div className="pt-6 border-t border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2">
                                                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 text-center italic">
-                                                    {new Date(formData.data_entrega_dia).toLocaleDateString('pt-BR', { weekday: 'long' })}: Selecione o Horário
+                                                    {new Date(formData.data_entrega_dia + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}: Selecione o Horário
                                                 </p>
                                                 <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                                                     {Array.from({ length: 11 }).map((_, i) => {
@@ -586,8 +558,9 @@ const DashboardCliente = () => {
                                                             <button
                                                                 key={hora}
                                                                 type="button"
+                                                                disabled={`${formData.data_entrega_dia}T${hora}:00` <= localDateTime()}
                                                                 onClick={() => setFormData({ ...formData, data_entrega_hora: `${hora}:00` })}
-                                                                className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${isSelectedHora
+                                                                className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border-2 disabled:opacity-30 disabled:cursor-not-allowed ${isSelectedHora
                                                                     ? 'bg-slate-900 border-slate-900 dark:bg-blue-500 dark:border-blue-400 text-white shadow-lg'
                                                                     : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-blue-500'
                                                                     }`}
@@ -608,7 +581,7 @@ const DashboardCliente = () => {
                                                 <CheckCircle2 size={24} />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Check-in Confirmado</p>
+                                                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Preferência de visita</p>
                                                 <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase italic tracking-tighter">
                                                     {new Date(formData.data_entrega_dia + 'T00:00:00').toLocaleDateString('pt-BR')} às {formData.data_entrega_hora}
                                                 </p>
@@ -644,35 +617,11 @@ const DashboardCliente = () => {
                             <ShieldCheck size={32} /> Scanner de Retirada
                         </h2>
 
-                        {/* O CONTAINER DA CÂMERA */}
-                        <div className="relative group w-full max-w-[320px] mx-auto">
-                            <div
-                                id="reader"
-                                className="w-full aspect-square rounded-[3rem] overflow-hidden border-4 border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.2)] bg-slate-900"
-                            ></div>
-                            {cameraAtiva && (
-                                <div className="absolute inset-0 pointer-events-none z-20">
-                                    {/* Linha Laser de Scan */}
-                                    <div className="w-full h-[2px] bg-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.8)] absolute top-0 animate-scan-line"></div>
-
-                                    {/* Cantos de Enquadramento */}
-                                    <div className="absolute inset-12 border-2 border-cyan-500/20 rounded-3xl">
-                                        <div className="absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4 border-cyan-400 rounded-tl-lg"></div>
-                                        <div className="absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 border-cyan-400 rounded-tr-lg"></div>
-                                        <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 border-cyan-400 rounded-bl-lg"></div>
-                                        <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 border-cyan-400 rounded-br-lg"></div>
-                                    </div>
-                                </div>
-                            )}
-                            {/* Overlay de Scanner */}
-                            <div className="absolute inset-0 border-2 border-cyan-500/50 rounded-[3rem] pointer-events-none animate-pulse"></div>
-                        </div>
-
-
-                        <div className="mt-10 p-6 bg-slate-900/50 rounded-3xl border border-slate-800">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 italic">Status_System_Link</p>
-                            <p className="text-white font-bold uppercase italic tracking-tight">{scannerStatus}</p>
-                        </div>
+                        <DeliveryScanner onConfirmed={() => {
+                            setIsScannerOpen(false);
+                            setView('historico');
+                            fetchHistorico();
+                        }} />
 
                         <button
                             onClick={() => setIsScannerOpen(false)}
@@ -778,8 +727,8 @@ const DashboardCliente = () => {
                                             <p className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">{verDetalhesOS.data_abertura}</p>
                                         </div>
                                         <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1">Previsão</p>
-                                            <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">{verDetalhesOS.data_agendada_admin || 'ANALISANDO'}</p>
+                                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1">{isEntregue ? 'Entregue em' : currentWeight === 3 ? 'Retirada' : 'Previsão'}</p>
+                                            <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">{isEntregue ? verDetalhesOS.data_finalizacao || 'Entrega confirmada' : currentWeight === 3 && !verDetalhesOS.scheduled_for ? 'Combine no balcão' : verDetalhesOS.data_agendada_admin || 'Em análise'}</p>
                                         </div>
                                     </div>
 
@@ -791,18 +740,19 @@ const DashboardCliente = () => {
                                                 <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Ação Necessária</p>
                                             </div>
                                             <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100 italic">
-                                                Seu aparelho está pronto! Dirija-se ao balcão e apresente o seu QR Code para validar a retirada.
+                                                Seu aparelho está pronto! No balcão, use a câmera para ler o QR exibido pela assistência e confirmar a retirada.
                                             </p>
                                         </div>
                                     )}
 
                                     {/* LAUDO TÉCNICO */}
-                                    {verDetalhesOS.status === 'Concluído' && (
+                                    {statusStage(verDetalhesOS.status) >= 3 && (
                                         <div className="bg-slate-50 dark:bg-slate-950 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 text-left">
                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">Laudo de Finalização:</p>
                                             <p className="text-slate-600 dark:text-slate-300 font-bold italic text-sm md:text-base">
                                                 {verDetalhesOS.laudo_tecnico || "Reparo concluído com sucesso."}
                                             </p>
+                                            {verDetalhesOS.total_price != null && <p className="mt-4 text-sm font-bold text-slate-800 dark:text-slate-200">Valor do serviço: {verDetalhesOS.total_price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>}
                                         </div>
                                     )}
                                 </div>
@@ -821,7 +771,7 @@ const DashboardCliente = () => {
                                         </button>
                                     )}
 
-                                    {verDetalhesOS.status === 'Concluído' && (
+                                    {statusStage(verDetalhesOS.status) === 4 && (
                                         <button
                                             onClick={() => window.open(`/cliente/os/${verDetalhesOS.id}`, '_blank')}
                                             className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-4 uppercase italic"

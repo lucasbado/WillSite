@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -22,7 +22,17 @@ import ScannerEntrega from './pages/ScannerEntrega';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import ConfirmEmail from './pages/ConfirmEmail';
+import CustomerAssistant from './components/CustomerAssistant';
 
+
+function ProtectedRoute({ admin = false, children }) {
+  const location = useLocation();
+  if (!sessionStorage.getItem('token')) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (admin && sessionStorage.getItem('role') !== 'admin') {
+    return <Navigate to="/cliente/dashboard" replace />;
+  }
+  return children;
+}
 
 function App() {
   return (
@@ -39,20 +49,20 @@ function App() {
         <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* Dashboards */}
-        <Route path="/cliente/dashboard" element={<DashboardCliente />} />
-        <Route path="/admin/dashboard" element={<DashboardAdmin />} />
-        <Route path="/admin/estoque" element={<GestaoEstoque />} />
-        <Route path="/admin/logs" element={<LogExclusoes />} />
-        <Route path="/admin/Agenda" element={<EscalaTecnica/>} />
-        <Route path="/admin/concluidos" element={<HistoricoConcluido />} />
-        <Route path="/admin/configuracoes" element={<Configuracoes />} />
-        <Route path="/cliente/qr-confirmacao" element={<ScannerEntrega />} />
-        <Route path="/cliente/os/:osId" element={<VisualizacaoRecibo />} />
-        <Route path="/admin/dashboard/financeiro" element={<DashboardFinanceiro />} />
-        <Route path="/cliente/perfil" element={<ConfiguracoesPerfil />} />
-        <Route path="/admin/clientes" element={<ListaClientes />} />
-        <Route path="/admin/cliente/:id" element={<DetalhesCliente />} />
-        <Route path="/admin/recibos" element={<Recibos />} />
+        <Route path="/cliente/dashboard" element={<ProtectedRoute><DashboardCliente /></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute admin><DashboardAdmin /></ProtectedRoute>} />
+        <Route path="/admin/estoque" element={<ProtectedRoute admin><GestaoEstoque /></ProtectedRoute>} />
+        <Route path="/admin/logs" element={<ProtectedRoute admin><LogExclusoes /></ProtectedRoute>} />
+        <Route path="/admin/Agenda" element={<ProtectedRoute admin><EscalaTecnica/></ProtectedRoute>} />
+        <Route path="/admin/concluidos" element={<ProtectedRoute admin><HistoricoConcluido /></ProtectedRoute>} />
+        <Route path="/admin/configuracoes" element={<ProtectedRoute admin><Configuracoes /></ProtectedRoute>} />
+        <Route path="/cliente/qr-confirmacao" element={<ProtectedRoute><ScannerEntrega /></ProtectedRoute>} />
+        <Route path="/cliente/os/:osId" element={<ProtectedRoute><VisualizacaoRecibo /></ProtectedRoute>} />
+        <Route path="/admin/dashboard/financeiro" element={<ProtectedRoute admin><DashboardFinanceiro /></ProtectedRoute>} />
+        <Route path="/cliente/perfil" element={<ProtectedRoute><ConfiguracoesPerfil /></ProtectedRoute>} />
+        <Route path="/admin/clientes" element={<ProtectedRoute admin><ListaClientes /></ProtectedRoute>} />
+        <Route path="/admin/cliente/:id" element={<ProtectedRoute admin><DetalhesCliente /></ProtectedRoute>} />
+        <Route path="/admin/recibos" element={<ProtectedRoute admin><Recibos /></ProtectedRoute>} />
         <Route path="/home/servicos" element={<Servicos />} />
         <Route path="/home/sobre" element={<Sobre />} />
         <Route path="/confirmar-email" element={<ConfirmEmail />} />
@@ -62,6 +72,7 @@ function App() {
         {/* Rota de fallback (Redireciona qualquer coisa errada para a Home) */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      <CustomerAssistant />
     </Router>
   );
 }

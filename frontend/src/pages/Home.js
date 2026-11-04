@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Smartphone, ShieldCheck, Zap, Database, Search,
-    ChevronRight, UserPlus, LogIn,
-    Cpu, Menu, X, Moon, Sun, User, ArrowUp, ArrowLeft, Activity
-} from 'lucide-react';
+import { Smartphone, ShieldCheck, Zap, Database, Search, ChevronRight, UserPlus, LogIn, Cpu, Menu, X, Moon, Sun, ArrowUp, ArrowLeft, Activity } from 'lucide-react';
 
 const Home = () => {
     const [menuAberto, setMenuAberto] = useState(false);
@@ -284,7 +280,7 @@ const Home = () => {
                                     </p>
                                 </div>
                                 <div className="p-4 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">
-                                    Lab_Status: <span className="text-emerald-500">OPERACIONAL</span> // {new Date().toLocaleDateString()}
+                                    Lab_Status: <span className="text-emerald-500">OPERACIONAL</span> {' / '} {new Date().toLocaleDateString('pt-BR')}
                                 </div>
                             </div>
 
@@ -557,8 +553,8 @@ const Home = () => {
                             </div>
                             <div className="flex flex-col gap-3">
                                 <span className="text-slate-900 dark:text-slate-200">Contato</span>
-                                <a href="#" className="hover:text-blue-600 transition-colors">WhatsApp</a>
-                                <a href="#" className="hover:text-blue-600 transition-colors">Instagram</a>
+                                <span>WhatsApp: consulte a assistência</span>
+
                             </div>
                         </div>
 

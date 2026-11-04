@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
 import notify from '../utils/notifications';
 
 const DashboardFinanceiro = () => {
@@ -22,27 +24,18 @@ const DashboardFinanceiro = () => {
         receitaTotal: 0,
         custosOperacionais: 0,
         porMarca: [],
-        perdasPorMotivo: []
+        perdasPorMotivo: [],
+        ticketMedio: 0,
+        skusAtivos: 0,
+        maiorMargemServico: null,
+        markupEstoque: null
     });
 
     const [isLossModalOpen, setIsLossModalOpen] = useState(false);
     const [lossData, setLossData] = useState({ item_id: '', quantidade: 1, motivo: '' });
 
-    // Altere o useEffect no seu arquivo DashboardFinanceiro.js
-    const registrarPerda = async (id) => {
-        const motivo = await notify.prompt("Motivo da Perda", "Descreva o ocorrido (ex: Quebra na montagem):");
-        if (motivo) {
-            try {
-                await api.post(`/estoque/registrar-perda/${id}`, { motivo });
-                carregarDadosFinanceiros(); // Atualiza a lista
-                notify.success("Perda registrada no fluxo financeiro.");
-            } catch (err) {
-                notify.error("Erro ao registrar perda.");
-            }
-        }
-    };
-
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
 
     const carregarDadosFinanceiros = async () => {
         try {
@@ -52,9 +45,10 @@ const DashboardFinanceiro = () => {
                 api.get('/estoque/')
             ]);
             setStats(resStats.data);
+            setLoadError('');
             setEstoque(resEstoque.data);
         } catch (err) {
-            console.error("Erro ao carregar métricas Cidinho:", err);
+            setLoadError(requestError(err, 'Não foi possível consultar os dados financeiros.'));
         } finally {
             setLoading(false);
         }
@@ -88,10 +82,10 @@ const DashboardFinanceiro = () => {
                         </button>
                         <div>
                             <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase italic leading-none dark:text-slate-50">
-                                Financial<span className="text-blue-600 dark:text-blue-500">Analytics</span>
+                                Painel <span className="text-blue-600 dark:text-blue-500">Financeiro</span>
                             </h2>
                             <p className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mt-1.5 md:mt-2">
-                                Cidinho / Profit & Loss Management
+                                Cidinho / Receitas e custos
                             </p>
                         </div>
                     </div>
@@ -99,10 +93,12 @@ const DashboardFinanceiro = () => {
                     {/* Badge visível apenas em telas maiores ou adaptada para mobile */}
                     <div className="flex items-center gap-2 w-fit bg-emerald-500/10 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 px-4 py-2 rounded-full border border-emerald-500/20">
                         <Activity size={14} className="animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Real-time Sincronizado</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest">Dados consultados na abertura ou atualização</span>
                     </div>
                 </div>
 
+                <LoadNotice error={loadError} loading={loading} onRetry={carregarDadosFinanceiros} />
+                <button type="button" onClick={carregarDadosFinanceiros} disabled={loading} className="mb-5 rounded-xl bg-slate-200 px-4 py-3 text-sm font-bold dark:bg-slate-800 disabled:opacity-50">Atualizar financeiro</button>
                 {/* --- GRID DE CARDS PRINCIPAIS (SCROLL NO MOBILE) --- */}
                 <div className="flex overflow-x-auto md:grid md:grid-cols-6 gap-4 md:gap-6 mb-12 pb-4 md:pb-0 no-scrollbar snap-x snap-mandatory">
 
@@ -116,7 +112,7 @@ const DashboardFinanceiro = () => {
                             R$ {stats.patrimonioTotal.toLocaleString('pt-BR')}
                         </h3>
                         <div className="mt-4 flex items-center gap-2 text-blue-500 dark:text-blue-400 font-black text-[9px] uppercase">
-                            <Package size={14} /> {stats.volumeConsertos} SKUs ativos
+                            <Package size={14} /> {stats.skusAtivos} SKUs ativos
                         </div>
                     </div>
 
@@ -130,7 +126,7 @@ const DashboardFinanceiro = () => {
                             R$ {stats.receitaTotal.toLocaleString('pt-BR')}
                         </h3>
                         <div className="mt-4 flex items-center gap-2 text-emerald-200 font-black text-[9px] uppercase">
-                            <ArrowUpRight size={14} /> Faturamento Líquido
+                            <ArrowUpRight size={14} /> OS entregues
                         </div>
                     </div>
 
@@ -144,7 +140,7 @@ const DashboardFinanceiro = () => {
                             R$ {stats.lucroPotencial.toLocaleString('pt-BR')}
                         </h3>
                         <div className="mt-4 flex items-center gap-2 text-emerald-300 font-black text-[9px] uppercase">
-                            <ArrowUpRight size={14} /> Mark-up: {stats.taxaSucesso}%
+                            <ArrowUpRight size={14} /> {stats.markupEstoque == null ? 'Custo de estoque ainda não informado' : `Mark-up: ${stats.markupEstoque}%`}
                         </div>
                     </div>
 
@@ -158,7 +154,7 @@ const DashboardFinanceiro = () => {
                             R$ {stats.custosOperacionais.toLocaleString('pt-BR')}
                         </h3>
                         <div className="mt-4 flex items-center gap-2 text-amber-200 font-black text-[9px] uppercase">
-                            <ArrowDownRight size={14} /> Despesas Fixas
+                            <ArrowDownRight size={14} /> Custos nas OS entregues
                         </div>
                     </div>
 
@@ -178,7 +174,7 @@ const DashboardFinanceiro = () => {
 
                     {/* CARD: TAXA DE SUCESSO */}
                     <div className="min-w-[85%] md:min-w-0 snap-center bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden group flex flex-col items-center justify-center shrink-0">
-                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 italic">Eficiência</p>
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 italic">Taxa de conclusão</p>
                         <div className="relative inline-block">
                             <svg className="w-16 h-16 md:w-20 md:h-20">
                                 <circle className="text-slate-100 dark:text-slate-800" strokeWidth="8" stroke="currentColor" fill="transparent" r="30" cx="40" cy="40" />
@@ -234,7 +230,7 @@ const DashboardFinanceiro = () => {
                             <div className="p-2 bg-orange-500/10 rounded-xl">
                                 <PieChart className="text-orange-500" size={20} />
                             </div>
-                            <h4 className="text-sm md:text-lg font-black uppercase italic tracking-tighter dark:text-slate-100">Perdas por Categoria</h4>
+                            <h4 className="text-sm md:text-lg font-black uppercase italic tracking-tighter dark:text-slate-100">Perdas por Motivo</h4>
                         </div>
 
                         <div className="space-y-3">
@@ -247,7 +243,7 @@ const DashboardFinanceiro = () => {
                                             </div>
                                             <div>
                                                 <p className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 leading-none mb-1">{perda.motivo}</p>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{perda.quantidade} ocorrências</p>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{perda.quantidade} unidades perdidas</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -258,7 +254,7 @@ const DashboardFinanceiro = () => {
                                 ))
                             ) : (
                                 <div className="py-10 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase italic">Nenhuma perda categorizada</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase italic">Nenhuma perda registrada</p>
                                 </div>
                             )}
                         </div>
@@ -320,17 +316,17 @@ const DashboardFinanceiro = () => {
                             <div className="p-2 bg-emerald-500/10 rounded-xl">
                                 <PieChart className="text-emerald-500" size={20} />
                             </div>
-                            <h4 className="text-sm md:text-lg font-black uppercase italic tracking-tighter dark:text-slate-100">Volume de Hardware</h4>
+                            <h4 className="text-sm md:text-lg font-black uppercase italic tracking-tighter dark:text-slate-100">Indicadores das entregas</h4>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="p-5 md:p-6 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-800/30 group hover:bg-blue-600 transition-all cursor-default">
                                 <p className="text-[9px] font-black text-blue-600 dark:text-blue-400 group-hover:text-blue-100 uppercase mb-2 tracking-widest">Média de Ticket</p>
-                                <p className="text-xl md:text-2xl font-black italic tracking-tighter dark:text-slate-100 group-hover:text-white">R$ 480,00</p>
+                                <p className="text-xl md:text-2xl font-black italic tracking-tighter dark:text-slate-100 group-hover:text-white">{stats.ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                             </div>
                             <div className="p-5 md:p-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-3xl border border-emerald-100 dark:border-emerald-800/30 group hover:bg-emerald-600 transition-all cursor-default">
-                                <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-100 uppercase mb-2 tracking-widest">Maior Lucro / Un</p>
-                                <p className="text-xl md:text-2xl font-black italic tracking-tighter dark:text-slate-100 group-hover:text-white">R$ 320,00</p>
+                                <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-100 uppercase mb-2 tracking-widest">Maior margem por serviço</p>
+                                <p className="text-xl md:text-2xl font-black italic tracking-tighter dark:text-slate-100 group-hover:text-white">{stats.maiorMargemServico == null ? 'Sem entregas' : stats.maiorMargemServico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                             </div>
                         </div>
 
@@ -340,9 +336,12 @@ const DashboardFinanceiro = () => {
                                 <Zap size={24} className="text-yellow-400 fill-yellow-400" />
                             </div>
                             <div>
-                                <p className="text-[9px] font-black uppercase text-blue-400 tracking-[0.3em] mb-1">Insight da Ollie:</p>
+                                <p className="text-[9px] font-black uppercase text-blue-400 tracking-[0.3em] mb-1">Resumo das entregas:</p>
                                 <p className="text-[11px] md:text-xs font-bold leading-relaxed text-slate-300 group-hover:text-white transition-colors">
-                                    "O custo de aquisição para telas de iPhone aumentou 12%. Sugiro verificar o fornecedor <span className="text-blue-400 underline">TechParts</span> ou ajustar a margem de saída."
+                                    {stats.volumeConsertos > 0
+                                        ? `${stats.volumeConsertos} serviços entregues, com receita total de ${stats.receitaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.`
+                                        : 'As métricas serão calculadas conforme as entregas forem confirmadas.'}
+                                    <span className="mt-2 block">A margem usa o custo atual das peças e os custos registrados por OS. Demais despesas não estão incluídas.</span>
                                 </p>
                             </div>
                         </div>

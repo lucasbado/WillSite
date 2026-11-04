@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     User, Mail, MapPin, Save, ArrowLeft, Phone,
     Info, Cpu, ShieldCheck, UserCircle, Moon, Sun
@@ -6,6 +6,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { IMaskInput } from 'react-imask';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
+import notify from '../utils/notifications';
 
 const ConfiguracoesPerfil = () => {
     const navigate = useNavigate();
@@ -18,6 +21,9 @@ const ConfiguracoesPerfil = () => {
         cpf: ''
     });
     const [loading, setLoading] = useState(false);
+    const [profileReady, setProfileReady] = useState(false);
+    const [readLoading, setReadLoading] = useState(true);
+    const [readError, setReadError] = useState('');
 
     // LÓGICA DE DARK MODE
     const [darkMode, setDarkMode] = useState(() => {
@@ -35,15 +41,17 @@ const ConfiguracoesPerfil = () => {
         }
     }, [darkMode]);
 
-    useEffect(() => {
-        const carregarDados = async () => {
-            try {
-                const res = await api.get('/auth/perfil');
-                setFormData(res.data);
-            } catch (err) { console.error("Erro perfil:", err); }
-        };
-        carregarDados();
+    const carregarPerfil = useCallback(async () => {
+        setReadLoading(true);
+        try {
+            const res = await api.get('/auth/perfil');
+            setFormData(res.data);
+            setProfileReady(true);
+            setReadError('');
+        } catch (error) { setReadError(requestError(error, 'Não foi possível carregar seu perfil.')); }
+        finally { setReadLoading(false); }
     }, []);
+    useEffect(() => { carregarPerfil(); }, [carregarPerfil]);
 
     const handleCEP = async (valorLimpo) => {
         setFormData(prev => ({ ...prev, cep: valorLimpo }));
@@ -63,11 +71,12 @@ const ConfiguracoesPerfil = () => {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        if (loading || !profileReady) return;
         setLoading(true);
         try {
             await api.patch('/auth/perfil/atualizar', formData);
-            alert("Perfil atualizado com sucesso!");
-        } catch (err) { alert("Erro ao atualizar."); }
+            notify.success("Perfil atualizado com sucesso!");
+        } catch (err) { notify.error(requestError(err, "Erro ao atualizar.")); }
         finally { setLoading(false); }
     };
 
@@ -126,6 +135,8 @@ const ConfiguracoesPerfil = () => {
                     </div>
 
                     <form onSubmit={handleSave} className="space-y-10 md:space-y-12 pb-20">
+                        <LoadNotice error={readError} loading={readLoading} onRetry={carregarPerfil} />
+                        <fieldset disabled={!profileReady} className="contents">
 
                         {/* SEÇÃO: DADOS BÁSICOS */}
                         <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
@@ -245,7 +256,7 @@ const ConfiguracoesPerfil = () => {
                             {/* Botão Salvar: bg-slate-900 | Dark: bg-blue-600 */}
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || !profileReady}
                                 className="w-full bg-slate-900 dark:bg-blue-600 text-white py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-lg md:text-2xl hover:bg-blue-600 dark:hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/10 dark:shadow-none flex items-center justify-center gap-4 active:scale-[0.97] group"
                             >
                                 {loading ? (
@@ -261,7 +272,7 @@ const ConfiguracoesPerfil = () => {
                                 )}
                             </button>
                         </div>
-                    </form>
+                    </fieldset></form>
                 </div>
             </div>
 

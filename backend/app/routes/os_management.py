@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from ..models import (
     db,
@@ -20,186 +20,96 @@ from ..utils import (
 )
 import base64
 import pyqrcode
-import random
+from ..security import accessible_order
+from ..services.intake import intake_payload
+from sqlalchemy.exc import IntegrityError
+from ..services.delivery import (
+    DeliveryError, code_payload, confirm_delivery, finish_repair, issue_code,
+)
 
 os_bp = Blueprint("os", __name__)
+
+
+@os_bp.errorhandler(DeliveryError)
+def delivery_error(error):
+    db.session.rollback()
+    return jsonify(msg=str(error)), error.status
+
+
+def json_object():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise DeliveryError("Envie um objeto JSON válido")
+    return data
 
 
 @os_bp.route("/validar-qr-entrega", methods=["POST"], strict_slashes=False)
 @jwt_required()
 def confirmar_entrega_via_qr():
-    data = request.get_json()
+    data = json_object()
     os_id = data.get("os_id")
-    token_recebido = str(data.get("token", ""))
-
-    os_atual = WorkOrder.query.get_or_404(os_id)
-    token_no_banco = str(os_atual.verification_code or "")
-
-    if not token_no_banco or token_recebido != token_no_banco:
-        return jsonify({"msg": "Token QR inválido ou expirado"}), 401
-
-    # Unificando o status para o que o Financeiro Stats espera
-    os_atual.status = "Concluído"
-    os_atual.verification_code = None
-    os_atual.code_expires_at = None
-    os_atual.finished_at = datetime.utcnow()  # IMPORTANTE: Para relatórios de tempo
-
-    db.session.commit()
-    return jsonify({"msg": "Entrega confirmada com sucesso!"}), 200
+    if type(os_id) is not int or os_id <= 0:
+        raise DeliveryError("Identificador da OS inválido")
+    order = accessible_order(os_id, lock=True)
+    confirm_delivery(order, data.get("token"))
+    return jsonify(msg="Entrega confirmada com sucesso!"), 200
 
 
 @os_bp.route("/<int:os_id>/entregar", methods=["POST"])
 @jwt_required()
 def entregar_os_final(os_id):
-    data = request.get_json()
-    is_bypass = data.get("is_bypass", False)
-    codigo_digitado = str(data.get("codigo_digitado", ""))
-
-    os_atual = WorkOrder.query.get_or_404(os_id)
-    claims = get_jwt()
-
-    # LÓGICA DE BYPASS: Se for bypass, verifica se é admin
-    if is_bypass:
-        if claims.get("role") != "admin":
-            return (
-                jsonify(
-                    {"msg": "Apenas administradores podem realizar o bypass de entrega"}
-                ),
-                403,
-            )
-        # Se for admin e bypass, ignora o código e segue
-    else:
-        # LÓGICA NORMAL: Valida o código QR/Token
-        token_no_banco = str(os_atual.verification_code or "")
-        if not token_no_banco or codigo_digitado != token_no_banco:
-            return jsonify({"msg": "Código de validação incorreto"}), 401
-
-    # Finalização comum para ambos os casos
-    os_atual.status = "Concluído"  # Ajustado para o status que seu Financeiro espera
-    os_atual.verification_code = None
-    os_atual.code_expires_at = None
-    os_atual.finished_at = datetime.utcnow()
-
-    db.session.commit()
-    return jsonify({"msg": "OS entregue e finalizada com sucesso!"}), 200
-
-
-def finalizar_e_limpar(os):
-    os.status = "Concluído"
-    os.verification_code = None
-    os.code_expires_at = None
-    db.session.commit()
-    return jsonify({"msg": "Entrega realizada!"}), 200
+    data = json_object()
+    order = accessible_order(os_id, lock=True)
+    confirm_delivery(order, data.get("codigo_digitado"), data.get("is_bypass", False))
+    return jsonify(msg="OS entregue e finalizada com sucesso!"), 200
 
 
 @os_bp.route("/<int:os_id>/finalizar", methods=["POST"])
+@os_bp.route("/admin/concluir-total/<int:os_id>", methods=["PATCH"])
+@os_bp.route("/admin/concluir/<int:os_id>", methods=["PATCH"])
 @jwt_required()
 def finalizar_os(os_id):
-    # Proteção de Rota: Só admin pode finalizar
-    claims = get_jwt()
-    if claims.get("role") != "admin":
-        return jsonify({"msg": "Acesso negado"}), 403
-
-    data = request.get_json()
-    itens_ids = data.get("itens_ids", [])
-    valor_mao_obra = data.get(
-        "valor_mao_obra", 0.0
-    )  # NOVO: Recebe mão de obra customizada
-    custo_operacional = data.get("custo_operacional", 0.0)  # NOVO: Custo operacional
-    desconto = data.get("desconto", 0.0)  # NOVO: Desconto aplicado
-
-    os_atual = WorkOrder.query.get_or_404(os_id)
-
+    data = json_object()
+    if "codigo_digitado" in data or "is_bypass" in data:
+        raise DeliveryError("Confirme a retirada pela rota /entregar")
+    pdf_binary = None
+    if data.get("pdf_anexo"):
+        try:
+            pdf_binary = base64.b64decode(data["pdf_anexo"].split(",", 1)[1], validate=True)
+        except (ValueError, IndexError, AttributeError):
+            raise DeliveryError("Anexo PDF inválido") from None
+    order = accessible_order(os_id, lock=True)
+    finish_repair(order, data)
+    # Falha de notificação não desfaz uma operação financeira já confirmada.
+    link = ""
+    notification_warning = None
     try:
-        total_pecas = 0.0
-
-        # Lógica de estoque
-        for p_id in itens_ids:
-            peca = InventoryItem.query.get(p_id)
-            if peca:
-                if peca.quantidade > 0:
-                    peca.quantidade -= 1
-                    # Usando 'preco_venda' que é o padrão definido no seu modelo de inventário
-                    total_pecas += getattr(peca, "preco_venda", 0)
-
-                    consumo = ConsumedItem(
-                        work_order_id=os_id, inventory_item_id=peca.id, quantidade=1
-                    )
-                    db.session.add(consumo)
-                else:
-                    return (
-                        jsonify({"msg": f"Estoque insuficiente para {peca.nome}"}),
-                        400,
-                    )
-
-        # CÁLCULO FINANCEIRO COMPLETO
-        total_final = total_pecas + valor_mao_obra + custo_operacional - desconto
-
-        # Atualiza OS com dados financeiros
-        os_atual.status = "Concluído"
-        os_atual.laudo_tecnico = data.get("laudo", "")
-        os_atual.finished_at = datetime.utcnow()
-        os_atual.valor_mao_obra = valor_mao_obra
-        os_atual.custo_operacional = custo_operacional
-        os_atual.desconto_aplicado = desconto
-        os_atual.total_price = total_final
-
-        db.session.commit()
-
-        return (
-            jsonify(
-                {
-                    "msg": "OS finalizada com sucesso!",
-                    "total_calculado": round(total_final, 2),
-                    "detalhamento": {
-                        "pecas": round(total_pecas, 2),
-                        "mao_obra": round(valor_mao_obra, 2),
-                        "custos_operacionais": round(custo_operacional, 2),
-                        "desconto": round(desconto, 2),
-                    },
-                }
-            ),
-            200,
-        )
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"msg": f"Erro ao processar finalização: {str(e)}"}), 500
+        link = notificar_cliente_multicanal(order, order.status, order.laudo_tecnico, pdf_binary)
+    except Exception:
+        current_app.logger.exception("Falha ao preparar notificação da OS %s", os_id)
+        notification_warning = "Reparo salvo, mas não foi possível preparar a notificação"
+    return jsonify(msg="Reparo finalizado. Aguardando retirada", total_calculado=order.total_price,
+                   os_atualizada=code_payload(order), whatsapp_link=link,
+                   notification_warning=notification_warning), 200
 
 
 @os_bp.route("/<int:os_id>/pronto", methods=["POST"])
 @jwt_required()
 def definir_pronto_retirada(os_id):
-    os_atual = WorkOrder.query.get_or_404(os_id)
-
-    token = str(random.randint(1000, 9999))
-    os_atual.verification_code = token
-    os_atual.code_expires_at = datetime.utcnow() + timedelta(minutes=30)
-    os_atual.status = "Pronto para Retirada"
-
-    print(f"DEBUG: Gerando código {token} para OS {os_id}")  # Adicione este print!
-
-    db.session.commit()  # <--- OBRIGATÓRIO
-    return jsonify({"msg": "Código gerado", "code": token}), 200
+    data = json_object()
+    order = accessible_order(os_id, lock=True)
+    issue_code(order, data.get("expira_em", 30))
+    db.session.commit()
+    return jsonify(msg="Código gerado", code=order.verification_code,
+                   os_atualizada=code_payload(order)), 200
 
 
 @os_bp.route("/validar-qr/<int:os_id>/<string:token>", methods=["POST"])
 @jwt_required()
 def validar_confirmacao_qr(os_id, token):
-    os_atual = WorkOrder.query.get_or_404(os_id)
-
-    # Valida se o token lido do QR é o mesmo que o Admin gerou
-    if str(os_atual.verification_code) != str(token):
-        return (
-            jsonify({"msg": "Token inválido"}),
-            401,
-        )  # 401 é mais correto que 403 aqui
-
-    os_atual.status = "Concluído"
-    os_atual.verification_code = None
-    db.session.commit()
-
-    return jsonify({"msg": "OK"}), 200
+    order = accessible_order(os_id, lock=True)
+    confirm_delivery(order, token)
+    return jsonify(msg="Entrega confirmada com sucesso!"), 200
 
 
 @os_bp.route("/abrir", methods=["POST"])
@@ -211,27 +121,36 @@ def abrir_os():
     if not user or not user.is_verified:
         return jsonify({"msg": "Sua conta ainda não foi verificada. Por favor, ative-a através do link enviado ao seu e-mail para abrir ordens de serviço."}), 403
 
-    data = request.json
+    data = intake_payload(request.get_json(silent=True))
+    key = data['intake_request_id']
 
-    # Captura a data que o cliente escolheu no calendário
-    data_cliente_str = data.get("data_entrega")  # Nome que vem do front
-    data_convertida = None
+    def existing_response():
+        existing = WorkOrder.query.filter_by(client_id=user_id, intake_request_id=key).first() if key else None
+        if not existing:
+            return None
+        if (existing.device_model != data['modelo'] or existing.problem_description != data['problema']
+                or existing.data_agendamento_entrega != data['date']):
+            raise DeliveryError('Esta solicitação já foi enviada com outros dados', 409)
+        return jsonify(msg='Solicitação já recebida. Aguarde a confirmação da equipe.', os_id=existing.id,
+                       agendamento_confirmado=False), 200
 
-    if data_cliente_str:
-        # Converte o formato do input datetime-local do navegador
-        data_convertida = datetime.strptime(data_cliente_str, "%Y-%m-%dT%H:%M")
-
-    nova_os = WorkOrder(
-        client_id=user_id,
-        device_model=data.get("modelo"),
-        problem_description=data.get("problema"),
-        data_agendamento_entrega=data_convertida,  # A data que ele vai levar
-        status="Pendente",  # Status inicial correto
-    )
-
+    previous = existing_response()
+    if previous:
+        return previous
+    nova_os = WorkOrder(client_id=user_id, device_model=data['modelo'],
+        problem_description=data['problema'], data_agendamento_entrega=data['date'],
+        intake_request_id=key, status='Pendente')
     db.session.add(nova_os)
-    db.session.commit()
-    return jsonify({"msg": "OS aberta com sucesso"}), 201
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        previous = existing_response()
+        if previous:
+            return previous
+        raise
+    return jsonify(msg='Solicitação recebida. Aguarde a confirmação do horário pela equipe.',
+                   os_id=nova_os.id, agendamento_confirmado=False), 201
 
 
 @os_bp.route("/admin/ocupacao", methods=["GET"])
@@ -371,61 +290,26 @@ def notificar_conclusao(os_id):
 @os_bp.route("/admin/agendar/<int:os_id>", methods=["PATCH"])
 @jwt_required()
 def agendar_os(os_id):
-    # Import local para evitar erro de pacote ou circularidade
+    data = json_object()
     try:
-        from app.utils import enviar_notificacao_status
-    except ImportError:
-        # Tente este caso a estrutura seja diferente
-        from ..utils import enviar_notificacao_status
-
-    data = request.get_json()
-    data_recebida = data.get("data_entrega")
-
-    if not data_recebida:
-        return jsonify({"msg": "Data e horário são obrigatórios"}), 400
-
-    os_servico = WorkOrder.query.get_or_404(os_id)
-    cliente = os_servico.client  # Certifique-se que o relacionamento existe no Model
-
-    try:
-        data_limpa = data_recebida.replace("T", " ")
-        data_final = datetime.strptime(data_limpa, "%Y-%m-%d %H:%M")
-        os_servico = WorkOrder.query.get_or_404(os_id)
-
-        os_servico.scheduled_date = data_final
+        data_final = datetime.strptime(data.get("data_entrega", "").replace("T", " "), "%Y-%m-%d %H:%M")
+    except (ValueError, AttributeError):
+        raise DeliveryError("Data e horário inválidos") from None
+    os_servico = accessible_order(os_id, lock=True)
+    if os_servico.status in {"Concluído", "Entregue"}:
+        raise DeliveryError("Esta OS já foi encerrada", 409)
+    os_servico.scheduled_date = data_final
+    # Agendar a retirada de um reparo pronto não pode reabrir o faturamento.
+    if os_servico.status != "Pronto para Retirada":
         os_servico.status = "Em Manutenção"
-        db.session.commit()
-
-        # O GATILHO:
-        from ..utils import notificar_cliente_multicanal
-
-        # Passamos o status "Agendado" e a data no laudo para o Whats
-        msg_agendamento = f"Seu aparelho foi agendado para retirada/entrega em: {data_final.strftime('%d/%m/%Y às %H:%M')}."
-
-        link_whats = notificar_cliente_multicanal(
-            os_servico, "Em Manutenção", msg_agendamento
-        )
-
-        return (
-            jsonify(
-                {
-                    "msg": "Agendado com sucesso!",
-                    "whatsapp_link": link_whats,  # <--- Agora o link vai aqui também!
-                }
-            ),
-            200,
-        )
-    except Exception as e:
-        db.session.rollback()
-        print(f"ERRO NO AGENDAMENTO: {e}")
-        return jsonify({"msg": f"Erro interno: {str(e)}"}), 500
-
-    except ValueError as e:
-        db.session.rollback()
-        return jsonify({"msg": f"Formato de data inválido: {str(e)}"}), 400
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"msg": "Erro interno ao processar agendamento"}), 500
+    db.session.commit()
+    link_whats = ""
+    try:
+        message = f"Seu aparelho foi agendado para retirada/entrega em: {data_final.strftime('%d/%m/%Y às %H:%M')}."
+        link_whats = notificar_cliente_multicanal(os_servico, os_servico.status, message)
+    except Exception:
+        current_app.logger.exception("Falha ao preparar notificação de agendamento da OS %s", os_id)
+    return jsonify(msg="Agendado com sucesso!", whatsapp_link=link_whats), 200
 
 
 @os_bp.route("/admin/listar", methods=["GET"])
@@ -450,6 +334,8 @@ def listar_todas_os():
                     ),
                     "modelo": o.device_model,
                     "problema": o.problem_description,
+                    "telefone": o.client.telefone if o.client else None,
+                    "scheduled_for": pytz.timezone("America/Sao_Paulo").localize(o.scheduled_date).isoformat() if o.scheduled_date else None,
                     "status": o.status,
                     # Data de Entrada
                     "data_entrada": (
@@ -463,24 +349,8 @@ def listar_todas_os():
                         else "Não informada"
                     ),
                     # --- LÓGICA INTELIGENTE BLINDADA ---
-                    "data_iso": (
-                        o.scheduled_date.strftime("%Y-%m-%d")
-                        if o.scheduled_date
-                        else (
-                            o.data_agendamento_entrega.strftime("%Y-%m-%d")
-                            if o.data_agendamento_entrega
-                            else None
-                        )
-                    ),
-                    "hora": (
-                        o.scheduled_date.strftime("%H:%M")
-                        if o.scheduled_date
-                        else (
-                            o.data_agendamento_entrega.strftime("%H:%M")
-                            if o.data_agendamento_entrega
-                            else "--:--"
-                        )
-                    ),
+                    "data_iso": o.scheduled_date.strftime("%Y-%m-%d") if o.scheduled_date else None,
+                    "hora": o.scheduled_date.strftime("%H:%M") if o.scheduled_date else "--:--",
                     "deadline": (
                         o.scheduled_date.strftime("%d/%m %H:%M")
                         if o.scheduled_date
@@ -494,9 +364,9 @@ def listar_todas_os():
                     # --- NOVOS CAMPOS DE SEGURANÇA (ADICIONE ESTE BLOCO) ---
                     "verification_code": o.verification_code,
                     "code_expires_at": (
-                        o.code_expires_at.isoformat() if o.code_expires_at else None
+                        o.code_expires_at.isoformat() + "Z" if o.code_expires_at else None
                     ),
-                    "ready_at": o.ready_at.isoformat() if o.ready_at else None,
+                    "ready_at": o.ready_at.isoformat() + "Z" if o.ready_at else None,
                     # ------------------------------------------------------
                 }
                 for o in ordens
@@ -626,7 +496,7 @@ def obter_calendario():
 
 @os_bp.route("/detalhes-publico/<int:os_id>", methods=["GET"])
 def detalhes_os_publico(os_id):
-    # Rota SEM @jwt_required para permitir acesso via link do WhatsApp
+    # O recibo exige sessão do proprietário ou administrador.
     os_servico = WorkOrder.query.get_or_404(os_id)
     cliente = os_servico.client
 
@@ -666,7 +536,7 @@ def detalhes_os_publico(os_id):
 def listar_os_concluidas():
     # Buscamos as ordens concluídas
     concluidas = (
-        WorkOrder.query.filter_by(status="Concluído", deletada=False)
+        WorkOrder.query.filter(WorkOrder.status.in_(["Concluído", "Entregue"]), WorkOrder.deletada == False)
         .order_by(WorkOrder.finished_at.desc())
         .all()
     )
@@ -828,7 +698,7 @@ def obter_stats_financeiros():
 
         # 5. ESTATÍSTICAS POR MARCA (DINÂMICO)
         concluidas_list = WorkOrder.query.filter(
-            WorkOrder.status == "Concluído", WorkOrder.deletada == False
+            WorkOrder.status.in_(["Concluído", "Entregue"]), WorkOrder.deletada == False
         ).all()
         stats_marcas = {}
         for os in concluidas_list:
@@ -854,22 +724,35 @@ def obter_stats_financeiros():
                 }
             )
 
+        costs_by_order = dict(
+            db.session.query(ConsumedItem.work_order_id, func.sum(ConsumedItem.quantidade * InventoryItem.preco_custo))
+            .join(InventoryItem, ConsumedItem.inventory_item_id == InventoryItem.id)
+            .group_by(ConsumedItem.work_order_id).all()
+        )
+        margins = [(order.total_price or 0) - (order.custo_operacional or 0) - (costs_by_order.get(order.id) or 0)
+                   for order in concluidas_list]
+        losses_by_reason = (
+            db.session.query(InventoryLoss.motivo, func.sum(InventoryLoss.quantidade), func.sum(InventoryLoss.valor_perda))
+            .group_by(InventoryLoss.motivo).order_by(func.sum(InventoryLoss.valor_perda).desc()).all()
+        )
+        perdas_por_motivo = [{"motivo": reason or "Não informado", "quantidade": int(quantity or 0), "valorTotal": round(float(value or 0), 2)}
+                            for reason, quantity, value in losses_by_reason]
+
         # 6. TENDÊNCIA MENSAL (RECEITA VS PREJUÍZO)
         tendencia = []
         agora = datetime.utcnow()
         for i in range(5, -1, -1):
             # Lógica de meses mais robusta
-            data_base = agora - timedelta(days=i * 30)
-            inicio_mes = data_base.replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0
-            )
+            month_index = agora.year * 12 + agora.month - 1 - i
+            year, month = divmod(month_index, 12)
+            inicio_mes = datetime(year, month + 1, 1)
             proximo_mes = (inicio_mes + timedelta(days=32)).replace(day=1)
-            fim_mes = proximo_mes - timedelta(seconds=1)
 
             receita_m = (
                 db.session.query(func.sum(WorkOrder.total_price))
                 .filter(
-                    WorkOrder.finished_at.between(inicio_mes, fim_mes),
+                    WorkOrder.finished_at >= inicio_mes, WorkOrder.finished_at < proximo_mes,
+                    WorkOrder.status.in_(["Concluído", "Entregue"]),
                     WorkOrder.deletada == False,
                 )
                 .scalar()
@@ -878,7 +761,7 @@ def obter_stats_financeiros():
 
             perdas_m = (
                 db.session.query(func.sum(InventoryLoss.valor_perda))
-                .filter(InventoryLoss.created_at.between(inicio_mes, fim_mes))
+                .filter((InventoryLoss.created_at >= inicio_mes) & (InventoryLoss.created_at < proximo_mes))
                 .scalar()
                 or 0
             )
@@ -899,7 +782,7 @@ def obter_stats_financeiros():
                     "receitaTotal": round(float(receita_total), 2),
                     "lucroPotencial": round(float(lucro_potencial_estoque), 2),
                     "lucroReal": round(
-                        float(receita_total - custo_total_pecas_vendidas), 2
+                        float(receita_total - custo_total_pecas_vendidas - custos_operacionais_os), 2
                     ),
                     "custosOperacionais": round(float(custos_operacionais_os), 2),
                     "volumeConsertos": int(volume_concluidas),
@@ -908,7 +791,11 @@ def obter_stats_financeiros():
                     "pecasQuebradas": int(pecas_quebradas),
                     "totalItens": int(total_itens),
                     "porMarca": porMarca,
-                    "perdasPorMotivo": [],
+                    "perdasPorMotivo": perdas_por_motivo,
+                    "skusAtivos": sum(1 for item in itens_estoque if item.quantidade > 0),
+                    "ticketMedio": round(float(receita_total / volume_concluidas), 2) if volume_concluidas else 0,
+                    "maiorMargemServico": round(float(max(margins)), 2) if margins else None,
+                    "markupEstoque": round(float(lucro_potencial_estoque / patrimonio_total * 100), 1) if patrimonio_total else None,
                     "rankingPerdas": rankingPerdas,
                     "tendenciaMensal": tendencia,
                 }
@@ -920,7 +807,7 @@ def obter_stats_financeiros():
         # ISSO VAI MOSTRAR O ERRO NO SEU TERMINAL (Importante ler!)
         print(f"DEBUG FINANCEIRO - ERRO REAL: {str(e)}")
         return (
-            jsonify({"msg": "Erro interno ao processar dashboard", "debug": str(e)}),
+            jsonify({"msg": "Não foi possível consultar os dados financeiros"}),
             500,
         )
 
@@ -1010,7 +897,7 @@ def get_operational_costs():
 @jwt_required()
 def historico_cliente():
     user_id = get_jwt_identity()
-    minhas_ordens = WorkOrder.query.filter_by(client_id=user_id, deletada=False).all()
+    minhas_ordens = WorkOrder.query.filter_by(client_id=user_id, deletada=False).order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc()).all()
 
     return (
         jsonify(
@@ -1034,12 +921,9 @@ def historico_cliente():
                         if o.data_agendamento_entrega
                         else "Não informada"
                     ),
-                    # 2. Data que o ADMIN marcou para RETIRADA (scheduled_date)
-                    "data_agendada_admin": (
-                        o.scheduled_date.strftime("%d/%m/%Y %H:%M")
-                        if o.scheduled_date
-                        else "Pendente"
-                    ),
+                    "scheduled_for": pytz.timezone("America/Sao_Paulo").localize(o.scheduled_date).isoformat() if o.scheduled_date else None,
+                    "data_finalizacao": format_brazil_time(o.finished_at),
+                    "total_price": o.total_price,
                 }
                 for o in minhas_ordens
             ]
@@ -1098,88 +982,3 @@ def check_status(os_id):
     # Headers para garantir que o polling sempre pegue o dado mais atual sem cache agressivo
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return response, 200
-
-
-@os_bp.route("/admin/concluir-total/<int:os_id>", methods=["PATCH"])
-@jwt_required()
-def concluir_os(os_id):
-    claims = get_jwt()
-    if claims.get("role") != "admin":
-        return jsonify({"msg": "Acesso negado"}), 403
-
-    data = request.get_json()
-    print(f"Recebendo conclusão para OS {os_id}")
-    itens_ids = data.get("itens_ids", [])
-    laudo = data.get("laudo", "Reparo concluído conforme padrões SGAT.")
-    pdf_base64 = data.get("pdf_anexo")
-    valor_mao_obra = data.get("valor_mao_obra", 0.0)
-    custo_operacional = data.get("custo_operacional", 0.0)
-    desconto = data.get("desconto_aplicado", 0.0)
-
-    os_atual = WorkOrder.query.get_or_404(os_id)
-
-    try:
-        total_pecas = 0
-
-        # Lógica de estoque
-        for p_id in itens_ids:
-            peca = InventoryItem.query.get(p_id)
-            if peca:
-                if peca.quantidade > 0:
-                    peca.quantidade -= 1
-                    # Usando 'preco_venda' que é o padrão definido no seu modelo de inventário
-                    total_pecas += getattr(peca, "preco_venda", 0)
-
-                    consumo = ConsumedItem(
-                        work_order_id=os_id, inventory_item_id=peca.id, quantidade=1
-                    )
-                    db.session.add(consumo)
-                else:
-                    return (
-                        jsonify({"msg": f"Estoque insuficiente para {peca.nome}"}),
-                        400,
-                    )
-
-        # CÁLCULO FINANCEIRO FINAL REAL
-        total_final = (
-            total_pecas
-            + float(valor_mao_obra)
-            + float(custo_operacional)
-            - float(desconto)
-        )
-
-        os_atual.status = "Concluído"
-        os_atual.laudo_tecnico = laudo
-        os_atual.finished_at = datetime.utcnow()
-        os_atual.valor_mao_obra = float(valor_mao_obra)
-        os_atual.custo_operacional = float(custo_operacional)
-        os_atual.desconto_aplicado = float(desconto)
-        os_atual.total_price = total_final
-        db.session.commit()
-
-        # O SEGREDO AQUI: Notificamos e pegamos o link do Whats
-        pdf_binary = None
-        if pdf_base64 and "," in pdf_base64:
-            # O React envia "data:application/pdf;base64,JVBERi..."
-            # Precisamos apenas do que vem depois da vírgula
-            try:
-                header, encoded = pdf_base64.split(",", 1)
-                pdf_binary = base64.b64decode(encoded)
-            except Exception as e:
-                print(f"Erro ao decodificar PDF: {e}")
-
-        # Dispara as notificações (Multicanal)
-        link_whats = notificar_cliente_multicanal(
-            os_servico=os_atual,
-            status="Concluído",
-            laudo=laudo,
-            pdf_blob=pdf_binary,  # Passa o binário para o e-mail
-        )
-
-        # Retornamos o link para o Frontend abrir
-        return jsonify({"whatsapp_link": link_whats}), 200
-
-    except Exception as e:
-        # ISSO AQUI VAI TE MOSTRAR O ERRO REAL NO TERMINAL
-        print(f"ERRO CRÍTICO NO BACKEND: {str(e)}")
-        return jsonify({"msg": f"Erro interno: {str(e)}"}), 500

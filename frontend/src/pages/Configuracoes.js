@@ -1,11 +1,6 @@
 /* eslint-disable react/jsx-no-comment-textnodes */
 import React, { useState, useEffect } from 'react';
-import {
-    Trash2, ArrowLeft, Users, Cpu, LayoutGrid, Search,
-    UserMinus, Moon, Sun, Zap, Star, Clock, MessageCircle,
-    Truck, X, Edit, ChevronRight, Database,
-    PhoneCallIcon
-} from 'lucide-react';
+import { Trash2, ArrowLeft, Users, Cpu, Search, UserMinus, Moon, Sun, Zap, Star, Clock, MessageCircle, Truck, X, Edit, ChevronRight, Database, PhoneCallIcon } from 'lucide-react';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
 import notify from '../utils/notifications';
@@ -28,28 +23,9 @@ const Configuracoes = () => {
 
     const [sugestoes, setSugestoes] = useState([]);
 
-    let searchTimer;
 
-    const buscarSugestoes = async (termo) => {
-        if (termo.length < 2) {
-            setSugestoes([]);
-            return;
-        }
 
-        try {
-            // Note o caminho: /devices/sugestao
-            const response = await api.get(`/devices/sugestao`, {
-                params: { q: termo }
-            });
 
-            if (Array.isArray(response.data)) {
-                setSugestoes(response.data);
-            }
-        } catch (error) {
-            console.error("Erro na busca:", error);
-            setSugestoes([]);
-        }
-    };
 
     const fetchData = async () => {
         try {

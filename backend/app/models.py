@@ -3,6 +3,13 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+class AssistantBucket(db.Model):
+    __tablename__ = 'assistant_buckets'
+    scope = db.Column(db.String(160), primary_key=True)
+    window = db.Column(db.BigInteger, nullable=False)
+    count = db.Column(db.Integer, nullable=False, default=0)
+
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -54,7 +61,7 @@ class DeviceModel(db.Model):
 
     )  # Ex: A2638, SM-S911
 
-    # Ajuda a Ollie (IA) a encontrar o modelo mesmo com erro de digitação
+    # Ajuda a Cidi (IA) a encontrar o modelo mesmo com erro de digitação
     tags_busca = db.Column(db.Text, nullable=True)  # Ex: "13pro, iph13, apple"
 
     def to_dict(self):
@@ -91,6 +98,8 @@ class WorkOrder(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     device_model = db.Column(db.String(100), nullable=False)
     problem_description = db.Column(db.Text, nullable=False)
+    intake_request_id = db.Column(db.String(36), nullable=True)
+    __table_args__ = (db.UniqueConstraint('client_id', 'intake_request_id', name='uq_work_orders_client_intake'),)
     status = db.Column(db.String(30), default="Pendente")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     data_agendamento_entrega = db.Column(db.DateTime)
@@ -104,6 +113,9 @@ class WorkOrder(db.Model):
     verification_code = db.Column(db.String(4), nullable=True) # Código de 4 dígitos
     ready_at = db.Column(db.DateTime, nullable=True) # Quando ficou pronto
     code_expires_at = db.Column(db.DateTime, nullable=True) # DATA DE EXPIRAÇÃO
+    verification_attempts = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    delivery_bypassed = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    delivered_by_id = db.Column(db.Integer, db.ForeignKey("users.id", name="fk_work_orders_delivered_by_id_users"), nullable=True)
         
     
 
@@ -117,7 +129,7 @@ class WorkOrder(db.Model):
     items_used = db.relationship(
         "ConsumedItem", backref="work_order", cascade="all, delete-orphan"
     )
-    client = db.relationship("User", backref="my_orders")
+    client = db.relationship("User", foreign_keys=[client_id], backref="my_orders")
 
 
 class ConsumedItem(db.Model):

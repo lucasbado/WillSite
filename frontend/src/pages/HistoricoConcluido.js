@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import {
-    CheckCircle2, ArrowLeft, X, Printer, Package,
-    Smartphone, User, Search, Calendar, ChevronRight, Cpu
-} from 'lucide-react';
+import { CheckCircle2, ArrowLeft, X, Printer, Smartphone, User, Search, Calendar, ChevronRight, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
+import { orderMatches } from '../utils/workOrders';
 import { IMaskInput } from 'react-imask';
+import notify from '../utils/notifications';
 
 const HistoricoConcluidos = () => {
     const [concluidas, setConcluidas] = useState([]);
@@ -13,17 +14,19 @@ const HistoricoConcluidos = () => {
     const [filtro, setFiltro] = useState('');
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const [loadError, setLoadError] = useState('');
 
     const carregarConcluidos = async () => {
         setLoading(true);
         try {
             const res = await api.get('/os/admin/concluidas');
             setConcluidas(res.data);
+            setLoadError('');
         } catch (err) {
-            console.error("Erro ao carregar concluídos", err);
+            setLoadError(requestError(err, 'Não foi possível carregar o histórico.'));
         } finally {
             // Delay tático para suavizar a transição visual e mostrar o design brutalista
-            setTimeout(() => setLoading(false), 600);
+            setLoading(false);
         }
     };
 
@@ -31,15 +34,12 @@ const HistoricoConcluidos = () => {
         try {
             const res = await api.get(`/os/detalhes/${id}`);
             setDetalhesOS(res.data);
-        } catch (err) { alert("Erro ao carregar detalhes."); }
+        } catch (err) { notify.error("Erro ao carregar detalhes."); }
     };
 
     useEffect(() => { carregarConcluidos(); }, []);
 
-    const listaFiltrada = concluidas.filter(os =>
-        os.cliente.toLowerCase().includes(filtro.toLowerCase()) ||
-        os.modelo.toLowerCase().includes(filtro.toLowerCase())
-    );
+    const listaFiltrada = concluidas.filter(order => orderMatches(order, filtro));
 
     return (
         /* 1. TRAVAMOS O BODY: h-screen impede o scroll da página inteira. flex-col organiza topo e corpo. */
@@ -47,7 +47,7 @@ const HistoricoConcluidos = () => {
 
             {/* --- HEADER DASHBOARD (Fixo no topo através do flex-none) --- */}
             <div className="flex-none bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 z-30 shadow-sm print:hidden">
-                <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 min-h-20 md:h-24 py-4 flex flex-wrap gap-4 items-center justify-between">
                     <div className="flex items-center gap-4 md:gap-6">
                         <button
                             onClick={() => navigate('/admin/dashboard')}
@@ -64,10 +64,11 @@ const HistoricoConcluidos = () => {
                     </div>
 
                     {/* Busca: bg-slate-50 | Dark: bg-slate-950 */}
-                    <div className="relative hidden md:block w-80 group">
+                    <div className="relative w-full md:w-80 group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 group-focus-within:text-emerald-500 transition-colors" size={18} />
                         <input
-                            placeholder="Buscar no histórico..."
+                            placeholder="Buscar OS, cliente ou aparelho…"
+                            aria-label="Buscar no histórico"
                             className="w-full bg-slate-50 dark:bg-slate-950 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold border-2 border-transparent dark:border-slate-800 focus:border-emerald-500 dark:focus:border-emerald-500 transition-all outline-none text-slate-800 dark:text-slate-200"
                             value={filtro}
                             onChange={(e) => setFiltro(e.target.value)}
@@ -80,6 +81,7 @@ const HistoricoConcluidos = () => {
             <main className="flex-1 overflow-y-auto modern-scroll-v print:hidden">
                 <div className="max-w-5xl mx-auto px-4 md:px-6 pt-8 md:pt-12">
                     
+                    <LoadNotice error={loadError} loading={loading} onRetry={carregarConcluidos} />
                     {/* SUBHEADER INFORMATIVO */}
                     <div className="flex items-center justify-between mb-8 px-2 md:px-0">
                         <h3 className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">

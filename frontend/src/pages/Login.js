@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Lock, LogIn, Cpu, ShieldCheck } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Mail, Lock, LogIn, Cpu, ShieldCheck, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import api from './api';
+import { requestError } from '../utils/requestError';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,34 +12,44 @@ const Login = () => {
   const [resetMode, setResetMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
     setError('');
     setMessage('');
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', { email: email.trim(), password });
       sessionStorage.setItem('token', response.data.access_token);
       sessionStorage.setItem('role', response.data.role);
       sessionStorage.setItem('user_name', response.data.user_name);
 
-      if (response.data.role === 'admin') {
+      const returnPath = location.state?.from;
+      if (returnPath?.startsWith('/cliente/') || (response.data.role === 'admin' && returnPath?.startsWith('/admin/'))) {
+        navigate(returnPath, { replace: true });
+      } else if (response.data.role === 'admin') {
         navigate('/admin/dashboard');
       } else {
         navigate('/cliente/dashboard');
       }
     } catch (err) {
-      if (err.response?.status === 403) {
-        setError(err.response.data.msg);
-      } else {
+      if (err.response?.status === 401) {
         setError('E-mail ou senha incorretos. Tente novamente.');
+      } else {
+        setError(requestError(err, 'Não foi possível entrar. Tente novamente.'));
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     setMessage('');
@@ -47,7 +58,7 @@ const Login = () => {
       setMessage(response.data.msg);
       setResetMode(false);
     } catch (err) {
-      setError(err.response?.data?.msg || 'Erro ao processar solicitação.');
+      setError(requestError(err, 'Erro ao processar solicitação.'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +106,7 @@ const Login = () => {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-3 animate-shake">
+            <div role="alert" className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-3 animate-shake">
               <ShieldCheck size={18} /> {error}
             </div>
           )}
@@ -107,13 +118,16 @@ const Login = () => {
           )}
 
           {!resetMode ? (
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} aria-label="Entrar na conta" className="space-y-5">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seu E-mail</label>
+                <label htmlFor="login-email" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seu E-mail</label>
                 <div className="relative group">
                   <Mail className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
                   <input
                     type="email"
+                    id="login-email"
+                    autoComplete="username"
+                    disabled={loading}
                     placeholder="exemplo@cidinho.com"
                     className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
                     value={email}
@@ -125,9 +139,10 @@ const Login = () => {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center ml-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sua Senha</label>
+                  <label htmlFor="login-password" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sua Senha</label>
                   <button
                     type="button"
+                    disabled={loading}
                     onClick={() => setResetMode(true)}
                     className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline"
                   >
@@ -137,21 +152,31 @@ const Login = () => {
                 <div className="relative group">
                   <Lock className="absolute left-4 top-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
+                    id="login-password"
+                    autoComplete="current-password"
+                    disabled={loading}
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 transition-all font-bold text-slate-700 outline-none"
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl p-4 pl-12 pr-14 transition-all font-bold text-slate-700 outline-none"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  <button type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword}
+                    onClick={() => setShowPassword(value => !value)} className="absolute right-4 top-4 text-slate-500">
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
               </div>
 
               <button
                 type="submit"
+                disabled={loading}
+                aria-busy={loading}
                 className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-xl shadow-blue-100 active:scale-95 mt-8"
               >
-                <LogIn size={22} /> Entrar no Sistema
+                {loading ? <LoaderCircle size={22} className="animate-spin" /> : <LogIn size={22} />}
+                {loading ? 'Entrando…' : 'Entrar no Sistema'}
               </button>
             </form>
           ) : (

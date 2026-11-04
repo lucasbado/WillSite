@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import {
-    Package, Plus, Minus, Trash2, Search, ArrowLeft,
-    Edit3, X, Cpu, Smartphone, LayoutGrid, AlertCircle,
-    Tag, Zap, Filter
-} from 'lucide-react';
+import { Plus, Minus, Trash2, Search, ArrowLeft, Edit3, X, Cpu, Smartphone, LayoutGrid, AlertCircle, Tag, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
 import notify from '../utils/notifications';
 
 const GestaoEstoque = () => {
     const navigate = useNavigate();
     const [estoque, setEstoque] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [saving, setSaving] = useState(false);
     const [listaModelos, setListaModelos] = useState([]);
 
     // ESTADOS DE FILTRO (Versão 1)
@@ -47,14 +48,17 @@ const GestaoEstoque = () => {
     };
 
     const carregarDados = async () => {
+        setLoading(true);
         try {
             const [resEstoque, resModelos] = await Promise.all([
                 api.get('/estoque/'),
                 api.get('/devices/listar')
             ]);
             setEstoque(resEstoque.data);
+            setLoadError('');
             setListaModelos(resModelos.data);
-        } catch (err) { console.error("Erro Cidinho:", err); }
+        } catch (err) { setLoadError(requestError(err, 'Não foi possível carregar o estoque.')); }
+        finally { setLoading(false); }
     };
 
     useEffect(() => { carregarDados(); }, []);
@@ -71,9 +75,10 @@ const GestaoEstoque = () => {
 
     const handleSalvar = async (e) => {
         e.preventDefault();
+        if (saving) return;
+        setSaving(true);
         try {
             // Log para você conferir no console se o preço está indo antes de enviar
-            console.log("Enviando dados:", formData);
 
             if (isEditMode) {
                 // Enviamos o formData completo para a rota PATCH
@@ -87,8 +92,8 @@ const GestaoEstoque = () => {
             notify.success("Sistema atualizado com sucesso!");
         } catch (err) {
             console.error(err);
-            notify.error("Erro na operação.");
-        }
+            notify.error(requestError(err, "Erro na operação."));
+        } finally { setSaving(false); }
     };
 
     const handleAjustarQtd = async (id, operacao) => {
@@ -133,28 +138,12 @@ const GestaoEstoque = () => {
 
     };
 
-    const registrarPerdaTecnica = async (item) => {
-        const qtd = await notify.prompt(`Baixa de Estoque`, `Quantas unidades de "${item.nome}" foram perdidas?`, "1", "number");
-        if (!qtd) return;
 
-        const motivo = await notify.prompt("Motivo da Perda", "Descreva o ocorrido (ex: Quebra na montagem):", "Quebra Técnica");
-        if (!motivo) return;
-
-        try {
-            await api.post(`/estoque/registrar-perda/${item.id}`, {
-                quantidade: parseInt(qtd),
-                motivo: motivo
-            });
-            notify.success("Prejuízo registrado. Estoque atualizado.");
-            carregarDados(); // Recarrega a lista de estoque
-        } catch (err) {
-            notify.error("Erro ao registrar perda.");
-        }
-    };
 
     return (
         /* --- ESTRUTURA PRINCIPAL --- */
         <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans modern-scroll-v">
+            <LoadNotice error={loadError} loading={loading} onRetry={carregarDados} />
 
             {/* 1. EFEITO DE PROFUNDIDADE (Glows que se adaptam ao tema) */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden" >
@@ -622,7 +611,7 @@ const GestaoEstoque = () => {
                                 </div>
 
                                 {/* Botão de Ação */}
-                                <button type="submit" className="w-full bg-slate-900 dark:bg-blue-600 text-white py-5 md:py-6 rounded-2xl md:rounded-[2rem] font-black text-base md:text-xl hover:bg-blue-600 dark:hover:bg-blue-500 transition-all shadow-xl dark:shadow-blue-900/20 active:scale-95 uppercase tracking-widest">
+                                <button type="submit" disabled={saving} aria-busy={saving} className="w-full bg-slate-900 dark:bg-blue-600 text-white py-5 md:py-6 rounded-2xl md:rounded-[2rem] font-black text-base md:text-xl hover:bg-blue-600 dark:hover:bg-blue-500 transition-all shadow-xl dark:shadow-blue-900/20 active:scale-95 uppercase tracking-widest">
                                     {isEditMode ? 'Salvar Alterações' : 'Cadastrar Item'}
                                 </button>
                             </form>

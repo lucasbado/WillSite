@@ -93,7 +93,7 @@ def buscar_sugestoes():
     if len(termo) < 2:
         return jsonify([]), 200
 
-    # O segredo da Ollie: Busca insensível a maiúsculas (ILIKE)
+    # O segredo da Cidi: Busca insensível a maiúsculas (ILIKE)
     # tanto no nome comercial quanto no código técnico.
     sugestoes = (
         DeviceModel.query.filter(

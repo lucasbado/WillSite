@@ -11,6 +11,8 @@ def send_async_email(app, msg):
     Tenta enviar e-mail de forma silenciosa.
     """
     with app.app_context():
+        if not app.config.get("NOTIFICATIONS_ENABLED", False):
+            return
         resend_key = os.getenv("RESEND_API_KEY")
         
         if resend_key:
@@ -54,7 +56,7 @@ def enviar_notificacao_status(
         sender=current_app.config.get("MAIL_DEFAULT_SENDER")
         or current_app.config.get("MAIL_USERNAME"),
     )
-    base_url = "https://fidel-unvictorious-vicenta.ngrok-free.dev"
+    base_url = current_app.config["FRONTEND_URL"]
     link_publico = f"{base_url}/cliente/os/{os_id}"
 
     colors = {
@@ -144,7 +146,7 @@ def enviar_email_verificacao(user, token):
     """
     Envia o e-mail de ativação de conta de forma assíncrona.
     """
-    frontend_url = os.getenv("FRONTEND_URL", "https://cidinho.onrender.com")
+    frontend_url = current_app.config["FRONTEND_URL"]
     verify_url = f"{frontend_url}/verify-email?token={token}"
 
     msg = Message(
@@ -211,7 +213,7 @@ def gerar_link_whatsapp(telefone, nome_cliente, os_id, modelo, status, laudo=Non
         pass
 
     # --- MONTAGEM DA MENSAGEM ---
-    base_url = "https://fidel-unvictorious-vicenta.ngrok-free.dev"
+    base_url = current_app.config["FRONTEND_URL"]
     link_recibo = f"{base_url}/cliente/os/{os_id}"
 
     msg_corpo = (

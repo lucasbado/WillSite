@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Cpu, Code, ShieldCheck, LogIn } from 'lucide-react';
+import { ArrowLeft, Cpu, ShieldCheck, LogIn } from 'lucide-react';
 
 const Sobre = () => {
     const navigate = useNavigate();

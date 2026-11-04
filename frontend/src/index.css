@@ -2,6 +2,23 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+.chat-choice {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #93c5fd;
+    border-radius: 12px;
+    color: #1d4ed8;
+    background: #eff6ff;
+    font-size: 14px;
+    font-weight: 600;
+}
+.chat-choice:hover { background: #dbeafe; }
+.chat-choice:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.chat-choice:disabled { opacity: .5; }
+.dark .chat-choice { color: #bfdbfe; background: #172554; border-color: #1e40af; }
+
 /* ============================================================
    ESTILOS DE SCROLL MODERNO (DESIGN REFINADO)
    ============================================================ */

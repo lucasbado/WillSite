@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { ShieldAlert, ArrowLeft, UserX, UserCheck, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
@@ -11,10 +10,7 @@ const LogExclusoes = () => {
 
     const carregarLog = async () => {
         try {
-            const token = sessionStorage.getItem('token');
-            const res = await api.get('http://localhost:5000/api/os/admin/excluidas', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.get('/os/admin/excluidas');
             setExcluidas(res.data);
         } catch (err) {
             console.error("Erro ao carregar log", err);
