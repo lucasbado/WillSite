@@ -41,7 +41,7 @@ export default function RepairQuote({ model, problem, onVisit }) {
             </> : result.status === 'ambiguous' ? <>
                 <p>Encontrei mais de uma versão. Escolha o modelo exato e consulte novamente:</p>
                 {result.options.map(option => <button key={option} type="button" className="chat-choice" onClick={() => change(() => setDevice(option))}>{option}</button>)}
-            </> : <p>A equipe precisa conferir a peça, a disponibilidade ou completar o preço desse serviço antes de passar um valor.{result.team_notified ? ' A pendência já apareceu para o administrador.' : ' Entre na sua conta e consulte novamente para registrar essa demanda com a equipe.'}</p>}
+            </> : <p>A equipe precisa conferir a peça, a disponibilidade ou completar o preço desse serviço antes de passar um valor.{result.team_notified ? ' A pendência já apareceu para o administrador.' : ' Para registrar essa demanda com a equipe, consulte usando uma conta com e-mail confirmado.'}</p>}
             {result.status !== 'ambiguous' && <button type="button" className="chat-choice" onClick={() => onVisit(result.model, problem || `Gostaria de avaliar o aparelho e consultar ${REPAIR_SERVICES[service].toLowerCase()}.`)}>Combinar visita para avaliação</button>}
         </div>}
     </section>;
