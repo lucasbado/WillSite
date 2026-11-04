@@ -1,17 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import axios from 'axios';
-import {
-    LayoutDashboard, Package, Users,
-    CalendarCheck, X, Search, LogOut, ShieldAlert,
-    Settings, ClipboardList, Receipt, Cpu, ChevronRight, Menu, FileText,
-    Clock, AlertCircle, CheckCircle2, Calendar, Smartphone, ChevronLeft,
-    Sparkles, MonitorCheckIcon, AlertTriangle, Zap, ShieldCheck,
-    Table
-} from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Package, Users, CalendarCheck, X, Search, LogOut, ShieldAlert, Settings, ClipboardList, Receipt, Cpu, ChevronRight, Menu, FileText, Clock, AlertCircle, CheckCircle2, Calendar, Smartphone, ChevronLeft, Sparkles, MonitorCheckIcon, AlertTriangle, Zap, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
+import { orderMatches, matchesAdminFilter } from '../utils/workOrders';
 import notify from '../utils/notifications';
-import html2pdf from 'html2pdf.js';
 import { QRCodeSVG } from 'qrcode.react';
 
 
@@ -21,21 +15,24 @@ const DashboardAdmin = () => {
     const [todasOS, setTodasOS] = useState([]);
     const [estoque, setEstoque] = useState([]);
     const [selectedOS, setSelectedOS] = useState(null);
-    const [horariosOcupados, setHorariosOcupados] = useState({});
     const [dataAgendamento, setDataAgendamento] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [pecasSugeridas, setPecasSugeridas] = useState([]);
     const [pecasEscolhidas, setPecasEscolhidas] = useState([]);
-    const [dataReferencia, setDataReferencia] = useState(new Date());
     const [laudo, setLaudo] = useState('');
     const [whatsLinkPending, setWhatsLinkPending] = useState(null);
-    const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [horaSelecionada, setHoraSelecionada] = useState('');
     const [semanaOffset, setSemanaOffset] = useState(0); // 0 = Hoje, -1 = Semana passada, +1 = Próxima
-    const [busca, setBusca] = useState('');
+    const [busca, setBusca] = useState(() => sessionStorage.getItem('admin_order_search') || '');
+    const [statusFilter, setStatusFilter] = useState(() => {
+        const saved = sessionStorage.getItem('admin_order_filter');
+        return ['todos', 'pendentes', 'manutencao', 'prontos', 'atrasados'].includes(saved) ? saved : 'todos';
+    });
+    const [loadError, setLoadError] = useState('');
+    const loadBusy = useRef(false);
     const [abrirSeletorData, setAbrirSeletorData] = useState(false);
 
     const fecharHandshakeESair = () => {
@@ -57,7 +54,14 @@ const DashboardAdmin = () => {
     const [showVerifyModal, setShowVerifyModal] = useState(false);
     const [inputCode, setInputCode] = useState('');
 
-
+    const abrirOrdem = (ordem) => {
+        const atualizada = todasOS.find(item => item.id === ordem.id) || ordem;
+        setSelectedOS(atualizada);
+        setShowVerifyModal(atualizada.status === 'Pronto para Retirada');
+        setShowConcluirModal(false);
+        setAbrirSeletorData(false);
+        setInputCode('');
+    };
 
 
     useEffect(() => {
@@ -101,87 +105,21 @@ const DashboardAdmin = () => {
         scrollRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    // const confirmarEnvioCodigo = async (minutos = 30) => {
-    //     const confirm = window.confirm(`Deseja gerar o código e notificar o cliente? O token expirará em ${minutos} minutos.`);
-    //     if (!confirm) return;
-
-    //     try {
-    //         setLoading(true);
-    //         const res = await api.post(`/os/${selectedOS.id}/pronto`, {
-    //             expira_em: minutos
-    //         });
-
-    //         if (res.data.whatsapp_link) window.open(res.data.whatsapp_link, '_blank');
-
-    //         alert("Código enviado e cronômetro iniciado!");
-    //         carregarDados();
-    //     } catch (err) {
-    //         alert("Erro ao processar envio.");
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
-
     const handleGerarCodigo = async (osId) => {
         try {
-            await api.post(`/os/${osId}/pronto`, { expira_em: 30 });
+            const res = await api.post(`/os/${osId}/pronto`, { expira_em: 30 });
+            setSelectedOS(atual => ({ ...atual, ...res.data.os_atualizada }));
+            setInputCode('');
 
             // ESSENCIAL: Recarregar a lista para o React "enxergar" a nova data de expiração
             await carregarDados();
 
             notify.success("Código gerado com sucesso!");
         } catch (err) {
-            console.error("Erro ao gerar código");
+            notify.error(err.response?.data?.msg || "Erro ao gerar código");
         }
     };
 
-    useEffect(() => {
-        // Verifique se a OS selecionada REALMENTE tem o campo de expiração vindo do banco
-        if (!selectedOS?.code_expires_at) {
-            console.log("Aguardando data de expiração...");
-            return;
-        }
-
-        const interval = setInterval(() => {
-            const agora = new Date().getTime();
-            // Converter a string do banco para timestamp do JS
-            const expiracao = new Date(selectedOS.code_expires_at).getTime();
-            const diff = expiracao - agora;
-
-            if (diff <= 0) {
-                setTempoRestante("EXPIRADO");
-                clearInterval(interval);
-            } else {
-                const minutos = Math.floor(diff / (1000 * 60));
-                const segundos = Math.floor((diff % (1000 * 60)) / 1000);
-                setTempoRestante(`${minutos}:${segundos < 10 ? '0' : ''}${segundos}`);
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [selectedOS]);
-
-
-
-
-    const calcularAlertaEntrada = (dataISO) => {
-        if (!dataISO) return null;
-
-        // Converte a string (Ex: 2026-03-12T14:30) para objeto Date
-        const dataAgendada = new Date(dataISO);
-        const agora = new Date();
-
-        const diffMs = dataAgendada - agora;
-        const diffHoras = diffMs / (1000 * 60 * 60);
-
-        if (diffMs < 0) {
-            return { label: "CLIENTE ATRASADO", cor: "bg-red-600", pulse: false };
-        }
-        if (diffHoras <= 2) {
-            return { label: "CLIENTE A CAMINHO", cor: "bg-amber-500", pulse: true };
-        }
-        return { label: "AGENDADO", cor: "bg-blue-500", pulse: false };
-    };
 
     const gerarLaudoAutomatico = () => {
         // Mapeamento de termos técnicos por ID ou Nome de peça
@@ -214,15 +152,7 @@ const DashboardAdmin = () => {
         setLaudo(rascunho.toUpperCase()); // Mantendo seu padrão de caixa alta brutalista
     };
 
-    const verificarAtraso = (dataISO, hora) => {
-        if (!dataISO || !hora) return false;
 
-        const [h, m] = hora.split(':');
-        const dataAgendada = new Date(dataISO);
-        dataAgendada.setHours(parseInt(h), parseInt(m), 0);
-
-        return dataAgendada < new Date(); // Retorna true se já passou da hora
-    };
     // Garanta que o estado inicial seja um objeto
     const [escalaSemanal, setEscalaSemanal] = useState({});
 
@@ -289,21 +219,19 @@ const DashboardAdmin = () => {
         });
     }, [semanaOffset]);
 
-    const mudarMes = (offset) => {
-        const novaData = new Date(dataReferencia);
-        novaData.setMonth(novaData.getMonth() + offset);
-        setDataReferencia(novaData);
-    };
 
-    const ordensFiltradas = todasOS.filter(os => {
-        const termo = busca.toLowerCase();
-        return (
-            os.cliente?.toLowerCase().includes(termo) ||
-            os.id.toString().includes(termo) ||
-            os.modelo?.toLowerCase().includes(termo)
-        );
-    });
-
+    const filterOptions = [['todos', 'Todas'], ['pendentes', 'Pendentes'], ['manutencao', 'Em manutenção'], ['prontos', 'Prontos'], ['atrasados', 'Atrasados']];
+    const ordensFiltradas = todasOS.filter(order => orderMatches(order, busca) && matchesAdminFilter(order, statusFilter));
+    const escalaExibida = Object.fromEntries(Object.entries(escalaSemanal).map(([day, orders]) => [day,
+        orders.filter(order => {
+            const complete = todasOS.find(item => item.id === order.id) || order;
+            return orderMatches(complete, busca) && matchesAdminFilter(complete, statusFilter);
+        })]));
+    useEffect(() => {
+        sessionStorage.setItem('admin_order_search', busca);
+        sessionStorage.setItem('admin_order_filter', statusFilter);
+    }, [busca, statusFilter]);
+    useEffect(() => { localStorage.setItem('sgat_tab_preference', tab); }, [tab]);
 
     const resumoAlertas = useMemo(() => {
         let atrasadas = 0;
@@ -323,100 +251,29 @@ const DashboardAdmin = () => {
         return { atrasadas, urgentes };
     }, [escalaSemanal]);
 
-    const slotsHorarios = [
-        '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30',
-        '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
-    ];
-
-
-
-
-    // Busca a contagem de agendamentos no banco para a data selecionada
-    const buscarOcupacao = useCallback(async (data) => {
-        if (!data) return;
-        try {
-            const res = await api.get(`/os/admin/ocupacao?data=${data}`);
-            setHorariosOcupados(res.data); // Espera um objeto: { "09:00": 3, "10:30": 1 }
-        } catch (err) {
-            console.error("Erro ao buscar ocupação");
-        }
-    }, []);
-
-    useEffect(() => {
-        if (dataAgendamento) buscarOcupacao(dataAgendamento);
-    }, [dataAgendamento, buscarOcupacao]);
-
-    // Lógica de Validação de Horários (Regras de Negócio)
-    const renderSlots = () => {
-        if (!dataAgendamento) return <p className="text-[10px] font-bold text-slate-400 italic p-4">Selecione uma data primeiro...</p>;
-
-        const dataObj = new Date(dataAgendamento + 'T00:00:00');
-        const diaSemana = dataObj.getDay(); // 0 = Domingo, 6 = Sábado
-        const verificarAtraso = (dataISO, hora) => {
-            if (!dataISO || !hora) return false;
-
-            const [h, m] = hora.split(':');
-            const dataAgendada = new Date(dataISO);
-            dataAgendada.setHours(parseInt(h), parseInt(m), 0);
-
-            return dataAgendada < new Date(); // Retorna true se já passou da hora
-        };
-
-        // Regra 1: Domingo não abre
-        if (diaSemana === 0) {
-            return <div className="col-span-3 p-4 bg-red-50 rounded-2xl border border-red-100 text-red-500 font-bold text-xs text-center uppercase">Fechado aos Domingos</div>;
-        }
-
-        return (
-            <div className="grid grid-cols-3 gap-2">
-                {slotsHorarios.map(hora => {
-                    const contagem = horariosOcupados[hora] || 0;
-                    const isCheio = contagem >= 3;
-
-                    // Regra 2: Sábado até às 16h
-                    const horaInt = parseInt(hora.split(':')[0]);
-                    const isSabadoTarde = diaSemana === 6 && horaInt >= 16;
-
-                    const desabilitado = isCheio || isSabadoTarde;
-
-                    return (
-                        <button
-                            key={hora}
-                            type="button"
-                            disabled={desabilitado}
-                            onClick={() => setHoraSelecionada(hora)}
-                            className={`p-2 rounded-xl text-[11px] font-black transition-all border-2 flex flex-col items-center ${horaSelecionada === hora
-                                ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
-                                : desabilitado
-                                    ? 'bg-slate-100 border-slate-100 text-slate-300 cursor-not-allowed opacity-50'
-                                    : 'bg-white border-slate-100 text-slate-600 hover:border-blue-400'
-                                }`}
-                        >
-                            {hora}
-                            {isCheio && <span className="text-[7px] text-red-500 uppercase leading-none mt-0.5">Lotado</span>}
-                            {isSabadoTarde && <span className="text-[7px] text-slate-400 uppercase leading-none mt-0.5">Off</span>}
-                        </button>
-                    );
-                })}
-            </div>
-        );
-    };
-
     // Funções de carregamento (mantendo sua lógica de API)
-    const carregarDados = async () => {
+    const carregarDados = useCallback(async () => {
+        if (loadBusy.current) return;
+        loadBusy.current = true;
         try {
             setLoading(true); // Inicia o carregamento
-            const [resOS, resEstoque, resEscala] = await Promise.all([
+            const months = [...new Set(diasDoMes.map(day => day.dataISO.slice(0, 7)))];
+            const [resOS, resEstoque, ...responses] = await Promise.all([
                 api.get('/os/admin/listar'),
                 api.get('/estoque/'),
-                api.get('/os/admin/escala-mensal')
+                ...months.map(month => {
+                    const [ano, mes] = month.split('-').map(Number);
+                    return api.get('/os/admin/escala-mensal', { params: { ano, mes } });
+                })
             ]);
 
+            setLoadError('');
             setTodasOS(resOS.data);
             setEstoque(resEstoque.data);
 
-            const escalaOrdenada = Object.keys(resEscala.data).reduce((acc, dataISO) => {
-                acc[dataISO] = resEscala.data[dataISO].sort((a, b) => {
+            const escala = Object.assign({}, ...responses.map(response => response.data));
+            const escalaOrdenada = Object.keys(escala).reduce((acc, dataISO) => {
+                acc[dataISO] = escala[dataISO].sort((a, b) => {
                     if (a.status === 'Pendente' && b.status === 'Concluído') return -1;
                     return a.hora.localeCompare(b.hora);
                 });
@@ -425,15 +282,23 @@ const DashboardAdmin = () => {
 
             setEscalaSemanal(escalaOrdenada);
         } catch (err) {
-            if (err.response?.status === 401) navigate('/login');
+            setLoadError(requestError(err, 'Não foi possível carregar as ordens.'));
         } finally {
-            // Pequeno delay opcional de 500ms para evitar o "flash" se a rede for rápida demais
-            setTimeout(() => setLoading(false), 500);
+            loadBusy.current = false;
+            setLoading(false);
         }
-    };
+    }, [diasDoMes]);
 
-    useEffect(() => { carregarDados(); }, []);
+    useEffect(() => { carregarDados(); }, [carregarDados]);
 
+
+    useEffect(() => {
+        const refresh = () => {
+            if (!document.hidden && !selectedOS && !showConcluirModal && !showVerifyModal) carregarDados();
+        };
+        const interval = setInterval(refresh, 30000);
+        return () => clearInterval(interval);
+    }, [carregarDados, selectedOS, showConcluirModal, showVerifyModal]);
 
     const pollingRef = useRef(null); // Ref para guardar o ID do intervalo
 
@@ -446,7 +311,6 @@ const DashboardAdmin = () => {
 
         // 2. Só inicia se o modal estiver aberto
         if (showVerifyModal && selectedOS) {
-            console.log("📡 Iniciando Polling Único para OS:", selectedOS.id);
 
             pollingRef.current = setInterval(async () => {
                 try {
@@ -458,6 +322,7 @@ const DashboardAdmin = () => {
                         pollingRef.current = null;
 
                         setShowVerifyModal(false);
+                        setSelectedOS(null);
                         notify.success("Entrega confirmada!");
                         carregarDados(); // Atualiza sua lista
                     }
@@ -471,12 +336,11 @@ const DashboardAdmin = () => {
         // 3. Cleanup: Quando o modal fecha ou o componente morre, MATAMOS o loop
         return () => {
             if (pollingRef.current) {
-                console.log("🛑 Polling finalizado.");
                 clearInterval(pollingRef.current);
                 pollingRef.current = null;
             }
         };
-    }, [showVerifyModal]); // O polling SÓ depende do modal abrir/fechar
+    }, [showVerifyModal, selectedOS, carregarDados]); // O polling SÓ depende do modal abrir/fechar
 
     const handleAgendar = async () => {
         if (!dataAgendamento || !horaSelecionada || !selectedOS) {
@@ -525,15 +389,12 @@ const DashboardAdmin = () => {
         carregarDados();
     };
 
-    const fecharTudo = () => {
-        setSelectedOS(null);
-        setShowVerifyModal(false);
-        setShowConcluirModal(false);
-        setAbrirSeletorData(false);
-        setInputCode(''); // Limpa o campo da senha
-    };
 
     const prepararConclusao = async () => {
+        if (selectedOS?.status === 'Pronto para Retirada') {
+            setShowVerifyModal(true);
+            return;
+        }
         try {
             // Usando a rota correta: /estoque/filtrar-por-modelo?modelo=NOME
             const res = await api.get(`/estoque/filtrar-por-modelo?modelo=${selectedOS.modelo}`);
@@ -548,25 +409,16 @@ const DashboardAdmin = () => {
     const [tempoRestante, setTempoRestante] = useState("");
 
     useEffect(() => {
-        if (!selectedOS?.code_expires_at) return;
-
-        const interval = setInterval(() => {
-            const agora = new Date();
-            const expiracao = new Date(selectedOS.code_expires_at);
-            const diff = expiracao - agora;
-
-            if (diff <= 0) {
-                setTempoRestante("EXPIRADO");
-                clearInterval(interval);
-            } else {
-                const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const segundos = Math.floor((diff % (1000 * 60)) / 1000);
-                setTempoRestante(`${minutos}:${segundos < 10 ? '0' : ''}${segundos}`);
-            }
-        }, 1000);
-
+        const expiresAt = selectedOS?.code_expires_at;
+        if (!expiresAt) { setTempoRestante(''); return; }
+        const tick = () => {
+            const seconds = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000));
+            setTempoRestante(seconds > 0 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'EXPIRADO');
+        };
+        tick();
+        const interval = setInterval(tick, 1000);
         return () => clearInterval(interval);
-    }, [selectedOS]);
+    }, [selectedOS?.code_expires_at]);
 
     const [itensSemEstoque, setItensSemEstoque] = useState([]);
 
@@ -599,7 +451,6 @@ const DashboardAdmin = () => {
                 }
             }
         };
-
 
 
         // Adiciona o "ouvinte" ao carregar o componente
@@ -656,10 +507,7 @@ const DashboardAdmin = () => {
                 itens_ids: pecasEscolhidas // IDs das peças selecionadas no seu checklist
             });
 
-            // 2. PASSO DE NOTIFICAÇÃO: Gera o QR e avisa o cliente
-            await api.post(`/os/${selectedOS.id}/pronto`);
-
-            notify.success("Reparo finalizado e cliente notificado!");
+            notify.success("Reparo finalizado. Aguardando confirmação da retirada.");
 
             // Reset de estados e fechamento
             setShowConcluirModal(false);
@@ -684,25 +532,18 @@ const DashboardAdmin = () => {
         // 1. Garante que o loading comece para evitar cliques múltiplos
         setLoading(true);
 
-        const token = localStorage.getItem('token');
-
         try {
             // 2. Verifica se existe uma OS selecionada antes de disparar
             if (!selectedOS?.id) {
                 throw new Error("Nenhuma Ordem de Serviço selecionada.");
             }
 
-            const res = await api.post(`/os/${selectedOS.id}/finalizar`,
+            await api.post(`/os/${selectedOS.id}/entregar`,
                 {
                     // Se for bypass, enviamos null ou vazio no código, 
                     // mas garantimos que is_bypass vá como true
                     codigo_digitado: isBypass ? "" : inputCode,
                     is_bypass: isBypass
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
                 }
             );
 
@@ -727,80 +568,12 @@ const DashboardAdmin = () => {
         }
     };
 
-    const handleConcluir = async () => {
-        if (!selectedOS || !laudo) {
-            notify.warning("O laudo técnico é obrigatório.");
-            return;
-        }
 
-        try {
-            setLoading(true);
-
-            const element = document.getElementById('print-area-wrapper');
-            if (!element) {
-                throw new Error("Template de impressão não encontrado no DOM.");
-            }
-
-            const opt = {
-                margin: 10,
-                filename: `Cidinho_OS_${selectedOS.id}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 3, useCORS: true, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            const pdfBase64 = await html2pdf().set(opt).from(element).outputPdf('datauristring');
-
-            const res = await api.patch(`/os/admin/concluir/${selectedOS.id}`, {
-                laudo: laudo,
-                itens_ids: pecasEscolhidas,
-                pdf_anexo: pdfBase64,
-                valor_mao_obra: valorMaoObra ? parseFloat(valorMaoObra) : 0,
-                custo_operacional: custoOperacional ? parseFloat(custoOperacional) : 0,
-                desconto_aplicado: descontoAplicado ? parseFloat(descontoAplicado) : 0
-            });
-
-
-            // Se o link vier, ele seta o estado que "limpa" o formulário e mostra o botão
-            if (res.data.whatsapp_link) {
-                setWhatsLinkPending(res.data.whatsapp_link);
-            } else {
-                notify.success("Sucesso!");
-                fecharEResetar();
-            }
-
-        } catch (err) {
-            console.error("Erro ao concluir:", err);
-            notify.error("Falha técnica na conclusão. Verifique o console.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-
-    const handleProntoImediato = async (os) => {
-        try {
-            const res = await api.post(`/os/${os.id}/pronto`, { expira_em: 30 });
-
-            // ATENÇÃO AQUI: Atualiza o estado global e o local do modal
-            await carregarDados();
-
-            // Se o seu backend retornar a OS atualizada no res.data, use ela:
-            if (res.data.os_atualizada) {
-                setSelectedOS(res.data.os_atualizada);
-            }
-
-            notify.success("Status: PRONTO PARA RETIRADA.");
-        } catch (err) {
-            notify.error("Erro ao processar.");
-        }
-    };
     const handleLogOut = () => {
         sessionStorage.clear();
         navigate('/login');
     };
-    if (loading && todasOS.length === 0) { // Só mostra o Full Loading na primeira carga
+    if (loading && todasOS.length === 0 && !loadError) { // Só mostra o Full Loading na primeira carga
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center font-sans">
                 <div className="relative">
@@ -928,13 +701,15 @@ const DashboardAdmin = () => {
                         <input
                             value={busca} // <-- VINCULA AO ESTADO
                             onChange={(e) => setBusca(e.target.value)} // <-- ATUALIZA O ESTADO
-                            placeholder="Buscar OS ou Cliente..."
+                            placeholder="OS, cliente, aparelho ou telefone"
+                            aria-label="Buscar ordens de serviço"
                             className="w-full bg-white dark:bg-slate-950 border-none pl-12 pr-5 py-4 rounded-2xl shadow-sm dark:shadow-none text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
                         />
                         {/* Botão de limpar busca opcional */}
                         {busca && (
                             <button
                                 onClick={() => setBusca('')}
+                                aria-label="Limpar busca"
                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
                             >
                                 <X size={14} />
@@ -942,6 +717,17 @@ const DashboardAdmin = () => {
                         )}
                     </div>
                 </header>
+
+                <LoadNotice error={loadError} onRetry={carregarDados} loading={loading} />
+                <div className="mb-6 flex flex-wrap gap-2" aria-label="Filtrar ordens por status">
+                    {filterOptions.map(([key, label]) => (
+                        <button type="button" key={key} aria-pressed={statusFilter === key} onClick={() => setStatusFilter(key)}
+                            className={`rounded-2xl px-4 py-3 text-sm font-bold ${statusFilter === key ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}`}>
+                            {label} ({todasOS.filter(order => matchesAdminFilter(order, key)).length})
+                        </button>
+                    ))}
+                    <button type="button" disabled={loading} onClick={carregarDados} className="rounded-2xl px-4 py-3 text-sm font-bold text-blue-600 disabled:opacity-50">Atualizar ordens</button>
+                </div>
 
                 {/* KPI CARDS: Cards bg-white | Dark: bg-slate-900 */}
                 <div className="flex lg:grid lg:grid-cols-3 gap-4 lg:gap-8 overflow-x-auto pb-4 lg:pb-0 mb-8 snap-x no-scrollbar ">
@@ -1287,7 +1073,8 @@ const DashboardAdmin = () => {
                                                     </div>
 
                                                     <button
-                                                        onClick={() => setSelectedOS(os)}
+                                                        onClick={() => abrirOrdem(os)}
+                                                        aria-label={`Abrir OS ${os.id}`}
                                                         className="bg-slate-900 dark:bg-slate-950 text-white p-4 rounded-2xl shadow-lg active:bg-blue-600 dark:active:bg-blue-500 border border-transparent dark:border-slate-800 transition-colors"
                                                     >
                                                         <ChevronRight size={20} />
@@ -1299,7 +1086,7 @@ const DashboardAdmin = () => {
                                         );
                                     })}
                                 </div>
-                                {ordensFiltradas.length === 0 && (
+                                {ordensFiltradas.length === 0 && !loadError && (
                                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
                                         <Search size={48} className="text-slate-300 mb-4" />
                                         <p className="text-slate-400 font-black uppercase tracking-widest italic">Nenhum registro encontrado</p>
@@ -1331,7 +1118,7 @@ const DashboardAdmin = () => {
                                                         {dia.nome} {dia.eHoje && "• HOJE"}
                                                     </h4>
                                                     <p className={`text-[9px] font-bold uppercase opacity-60 ${dia.eHoje ? 'text-white' : ''}`}>
-                                                        {escalaSemanal[dia.dataISO]?.length || 0} Reparos
+                                                        {escalaExibida[dia.dataISO]?.length || 0} Reparos
                                                     </p>
                                                 </div>
                                             </div>
@@ -1340,8 +1127,8 @@ const DashboardAdmin = () => {
                                         {/* LISTA DE CARDS: Espaço vertical fixo com scroll interno se necessário */}
                                         <div className={`flex flex-col gap-4 p-3 rounded-[2.5rem] min-h-[500px] border-2 border-transparent transition-colors ${dia.eHoje ? 'bg-blue-50/20 dark:bg-blue-900/10 border-blue-500/20' : 'bg-slate-50/50 dark:bg-slate-900/30 modern-scroll-v h'
                                             }`}>
-                                            {escalaSemanal[dia.dataISO]?.length > 0 ? (
-                                                escalaSemanal[dia.dataISO].map((job) => {
+                                            {escalaExibida[dia.dataISO]?.length > 0 ? (
+                                                escalaExibida[dia.dataISO].map((job) => {
                                                     const statusTempo = job.status !== 'Concluído'
                                                         ? calcularStatusInteligente(dia.dataISO, job.hora)
                                                         : { nivel: 'concluido', label: 'Finalizado', cor: 'bg-emerald-500' };
@@ -1349,7 +1136,7 @@ const DashboardAdmin = () => {
                                                     return (
                                                         <div
                                                             key={job.id}
-                                                            onClick={() => setSelectedOS(job)}
+                                                            onClick={() => abrirOrdem(job)}
                                                             className="group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border-2 border-slate-900 dark:border-slate-800 transition-all hover:-translate-y-1 active:scale-95 cursor-pointer relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]"
                                                         >
                                                             {/* Indicador de Prioridade */}
@@ -1454,7 +1241,7 @@ const DashboardAdmin = () => {
                                             onClick={prepararConclusao}
                                             className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-black uppercase italic text-xs transition-all"
                                         >
-                                            <CheckCircle2 size={16} /> PRONTO / FATURAR
+                                            <CheckCircle2 size={16} /> {selectedOS?.status === 'Pronto para Retirada' ? 'VALIDAR RETIRADA' : 'PRONTO / FATURAR'}
                                         </button>
 
                                         {/* OPÇÃO 2: AGENDAR (Abre o seletor que você já tinha) */}
@@ -1710,9 +1497,10 @@ const DashboardAdmin = () => {
                                 type="text"
                                 maxLength="4"
                                 value={inputCode}
-                                onChange={(e) => setInputCode(e.target.value)}
+                                onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ''))}
                                 className="w-full bg-black border-b-2 border-slate-800 rounded-2xl py-5 text-center text-4xl font-black text-cyan-400 tracking-[0.5em] focus:border-cyan-500 outline-none transition-all placeholder:text-slate-800"
                                 placeholder="----"
+                                aria-label="Código de retirada"
                                 autoFocus
                             />
                         </div>
@@ -1755,25 +1543,33 @@ const DashboardAdmin = () => {
                                 </div>
                             </div>
                         </div>
-                        {console.log("Dados da OS no Modal:", selectedOS)}
 
                         <div className="flex flex-col gap-4">
                             {/* Botão de Confirmação Principal */}
                             <button
                                 onClick={() => handleFinalDelivery(false)}
+                                disabled={loading || !/^\d{4}$/.test(inputCode) || tempoRestante === "EXPIRADO"}
                                 className="w-full bg-cyan-600 py-5 rounded-2xl text-white font-black uppercase tracking-[0.2em] text-[11px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-900/40 active:scale-95"
                             >
                                 AUTORIZAR ENTREGA
                             </button>
+                            <button
+                                onClick={() => handleGerarCodigo(selectedOS.id)}
+                                disabled={loading}
+                                className="py-2 text-xs text-cyan-400 uppercase font-bold"
+                            >
+                                GERAR NOVO CÓDIGO
+                            </button>
 
                             {/* Botão de Bypass Discreto */}
                             <button
-                                onClick={() => {
-                                    if (window.confirm("Liberar sem código? Requer registro de assinatura manual.")) handleFinalDelivery(true);
+                                onClick={async () => {
+                                    const confirm = await notify.confirm("Bypass de Segurança", "Liberar sem código? Requer registro de assinatura manual.");
+                                    if (confirm) handleFinalDelivery(true);
                                 }}
                                 className="py-2 text-[8px] text-slate-600 uppercase font-black tracking-widest hover:text-red-500 transition-colors border border-transparent hover:border-red-500/20 rounded-xl"
                             >
-                                Bypass_Admin_Override
+                                Liberar sem código (administrador)
                             </button>
                         </div>
 

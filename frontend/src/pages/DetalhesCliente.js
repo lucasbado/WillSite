@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from './api';
-import {
-    ArrowLeft, Phone, Mail, MapPin, Smartphone,
-    Clock, CheckCircle2, X, Printer, Cpu, ShieldCheck, Hash, Calendar, ChevronRight, Award
-} from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Smartphone, Clock, CheckCircle2, X, Printer, Cpu, ChevronRight, Award } from 'lucide-react';
+import notify from '../utils/notifications';
 import { IMaskInput } from 'react-imask';
 const DetalhesCliente = () => {
     const { id } = useParams();
@@ -14,7 +12,7 @@ const DetalhesCliente = () => {
     const [loading, setLoading] = useState(true);
 
 
-    const fetchDados = async () => {
+    const fetchDados = useCallback(async () => {
         setLoading(true);
         try {
             const res = await api.get(`/auth/admin/cliente/${id}`);
@@ -24,7 +22,7 @@ const DetalhesCliente = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
 
     const abrirDetalhesOS = async (osId) => {
@@ -32,20 +30,12 @@ const DetalhesCliente = () => {
             const res = await api.get(`/os/detalhes/${osId}`);
             setSelectedOS(res.data);
         } catch (err) {
-            alert("Erro ao carregar ordem.");
-        }
-    };
-    const verDetalhes = async (id) => {
-        try {
-            const res = await api.get(`/os/detalhes/${id}`);
-            // O link já vem pronto dentro de res.data.cliente_info.whatsapp_link
-            setSelectedOS(res.data);
-        } catch (err) {
-            alert("Erro ao carregar detalhes");
+            notify.error("Erro ao carregar ordem.");
         }
     };
 
-    useEffect(() => { fetchDados(); }, [id]);
+
+    useEffect(() => { fetchDados(); }, [fetchDados]);
 
 
     return (

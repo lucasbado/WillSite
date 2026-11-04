@@ -1,29 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Smartphone, Printer, Cpu, CheckCircle2 } from 'lucide-react';
+import { Printer, Cpu } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
 import { Helmet } from 'react-helmet-async';
 
 const VisualizacaoRecibo = () => {
     const { osId } = useParams();
     const [dados, setDados] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
 
-    useEffect(() => {
-        const fetchOS = async () => {
-            try {
-                // Rota que criamos para detalhes da OS
-                const res = await api.get(`/os/detalhes-publico/${osId}`);
-                setDados(res.data);
-            } catch (err) {
-                console.error("Erro ao carregar recibo");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchOS();
+    const fetchOS = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.get(`/os/detalhes-publico/${osId}`);
+            setDados(res.data);
+            setLoadError('');
+        } catch (error) {
+            setLoadError(error.response?.status === 404 ? 'Recibo não encontrado ou indisponível para sua conta.' : requestError(error));
+        } finally { setLoading(false); }
     }, [osId]);
+    useEffect(() => { fetchOS(); }, [fetchOS]);
 
     if (loading) return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-white">
@@ -32,7 +32,7 @@ const VisualizacaoRecibo = () => {
         </div>
     );
 
-    if (!dados) return <div className="p-10 text-center font-black">OS NÃO ENCONTRADA</div>;
+    if (!dados) return <div className="p-6"><LoadNotice error={loadError} loading={loading} onRetry={fetchOS} /></div>;
 
 
 
@@ -45,7 +45,7 @@ const VisualizacaoRecibo = () => {
                 <meta property="og:description" content={`Laudo técnico do aparelho ${dados?.os_info?.modelo || 'em manutenção'}.`} />
 
                 {/* A imagem precisa ser um link completo e público para o WhatsApp ler */}
-                <meta property="og:image" content="https://fidel-unvictorious-vicenta.ngrok-free.dev/logo-sgat.png" />
+                <meta property="og:image" content={`${window.location.origin}/logo192.png`} />
             </Helmet>
             <div className="min-h-screen bg-slate-50 md:p-12">
                 {/* Botão de Impressão Flutuante (Escondido na hora de imprimir) */}

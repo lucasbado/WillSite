@@ -77,7 +77,7 @@ def listar_clientes_admin():
     # Usamos um join para contar as OS de cada usuário automaticamente
     usuarios = (
         db.session.query(User, func.count(WorkOrder.id).label("total_os"))
-        .outerjoin(WorkOrder)
+        .outerjoin(WorkOrder, WorkOrder.client_id == User.id)
         .group_by(User.id)
         .all()
     )

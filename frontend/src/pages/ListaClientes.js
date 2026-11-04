@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Search, ArrowLeft, Mail, Phone, MapPin, Award, Cpu } from 'lucide-react';
+import { Users, Search, ArrowLeft, Mail, Phone, Award } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
+import LoadNotice from '../components/LoadNotice';
+import { requestError } from '../utils/requestError';
 
 const ListaClientes = () => {
     const [clientes, setClientes] = useState([]);
     const [busca, setBusca] = useState('');
+    const [loadError, setLoadError] = useState('');
     const [loading, setLoading] = useState(true); // Estado de loading parcial
     const navigate = useNavigate();
 
@@ -14,11 +17,12 @@ const ListaClientes = () => {
         try {
             const res = await api.get('/auth/admin/clientes');
             setClientes(res.data);
+            setLoadError('');
         } catch (err) {
-            console.error("Erro ao carregar clientes", err);
+            setLoadError(requestError(err, 'Não foi possível carregar os clientes.'));
         } finally {
             // Delay intencional de 600ms para a transição não ser brusca
-            setTimeout(() => setLoading(false), 200);
+            setLoading(false);
         }
     };
 
@@ -65,6 +69,7 @@ const ListaClientes = () => {
                     </div>
                 </div>
 
+                <LoadNotice error={loadError} onRetry={carregarClientes} loading={loading} />
                 {/* --- GRID DE CLIENTES / SKELETON --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {loading ? (
@@ -144,7 +149,7 @@ const ListaClientes = () => {
                 </div>
 
                 {/* --- EMPTY STATE --- */}
-                {!loading && clientesFiltrados.length === 0 && (
+                {!loading && !loadError && clientesFiltrados.length === 0 && (
                     <div className="text-center py-32 bg-white dark:bg-slate-900 rounded-[4rem] border-4 border-dashed border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in duration-500">
                         <div className="p-8 bg-slate-50 dark:bg-slate-950 w-fit mx-auto rounded-full mb-6">
                             <Users size={64} className="text-slate-200 dark:text-slate-800" />

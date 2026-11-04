@@ -98,7 +98,7 @@ const Servicos = () => {
                             </p>
                         </div>
                         <div className="p-4 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">
-                            Lab_Status: <span className="text-emerald-500">OPERACIONAL</span> // {new Date().toLocaleDateString()}
+                            Lab_Status: <span className="text-emerald-500">OPERACIONAL</span> {' / '} {new Date().toLocaleDateString('pt-BR')}
                         </div>
                     </div>
 

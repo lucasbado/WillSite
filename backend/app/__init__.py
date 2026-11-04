@@ -1,171 +1,116 @@
-# backend/app/__init__.py
-from flask import Flask, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
-from flask_cors import CORS
-import os
-from dotenv import load_dotenv
 from datetime import timedelta
+from pathlib import Path
+import os
+import secrets
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from flask_mail import Mail
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 
-load_dotenv()
-
-
-# Inicializamos os objetos das extensões
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
-mail = Mail()  # Instância global
+mail = Mail()
 
 
-def ensure_db_schema(app):
-    with app.app_context():
-        try:
-            # 1. Garante que o schema 'public' existe (importante para Neon/Postgres resetados)
-            with db.engine.connect() as conn:
-                conn.execute(text("CREATE SCHEMA IF NOT EXISTS public;"))
-                conn.commit()
-
-            # 2. Garante a criação de todas as tabelas definidas nos models
-            db.create_all()
-            engine = db.engine
-        except Exception as e:
-            print(f"Erro ao acessar o motor do banco: {e}")
-            return
-
-        if engine.dialect.name == "postgresql":
-            # Colunas para a tabela 'work_orders'
-            wo_columns = {
-                "valor_mao_obra": "FLOAT DEFAULT 0.0",
-                "custo_operacional": "FLOAT DEFAULT 0.0",
-                "desconto_aplicado": "FLOAT DEFAULT 0.0",
-                "total_price": "FLOAT",
-                "verification_code": "VARCHAR(4)",
-                "ready_at": "TIMESTAMP",
-                "code_expires_at": "TIMESTAMP",
-            }
-
-            # Colunas para a tabela 'users'
-            user_columns = {
-                "is_verified": "BOOLEAN DEFAULT FALSE",
-            }
-
-            with engine.connect() as conn:
-                # Atualiza work_orders
-                for column_name, column_type in wo_columns.items():
-                    exists = conn.execute(
-                        text(
-                            "SELECT 1 FROM information_schema.columns "
-                            "WHERE table_name = 'work_orders' "
-                            "AND column_name = :column_name"
-                        ),
-                        {"column_name": column_name},
-                    ).first()
-
-                    if not exists:
-                        conn.execute(
-                            text(
-                                f"ALTER TABLE work_orders ADD COLUMN {column_name} {column_type};"
-                            )
-                        )
-                
-                # Atualiza users
-                for column_name, column_type in user_columns.items():
-                    exists = conn.execute(
-                        text(
-                            "SELECT 1 FROM information_schema.columns "
-                            "WHERE table_name = 'users' "
-                            "AND column_name = :column_name"
-                        ),
-                        {"column_name": column_name},
-                    ).first()
-
-                    if not exists:
-                        conn.execute(
-                            text(
-                                f"ALTER TABLE users ADD COLUMN {column_name} {column_type};"
-                            )
-                        )
-                
-                conn.commit()
-
-
-def create_app():
-    app = Flask(__name__)
-
-    template_dir = os.path.abspath("../frontend/build")
-    static_dir = os.path.abspath("../frontend/build/static")
-    app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
-    # Configurações do Banco e JWT
-    uri = os.getenv("DATABASE_URL")
-
+def create_app(test_config=None):
+    backend_dir = Path(__file__).resolve().parents[1]
+    build_dir = backend_dir.parent / "frontend" / "build"
+    # O .env antigo pode apontar para produção. Desenvolvimento só lê .env.local.
+    environment = os.getenv("APP_ENV", "production" if os.getenv("RENDER") else "development")
+    load_dotenv(backend_dir / (".env" if environment == "production" else ".env.local"))
+    production = environment == "production"
+    app = Flask(__name__, static_folder=str(build_dir / "static"))
+    local_uri = "sqlite:///willsite-local.db"
+    uri = os.getenv("DATABASE_URL") if production else os.getenv("LOCAL_DATABASE_URL", local_uri)
     if uri and uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = uri
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,  # Testa a conexão antes de cada query (resolve o SSL closed)
-        "pool_recycle": 300,  # Reinicia conexões a cada 5 minutos
-        "pool_size": 10,  # Número máximo de conexões mantidas
-        "max_overflow": 20,  # Conexões extras permitidas em picos
-    }
+    app.config.from_mapping(
+        APP_ENV=environment,
+        SQLALCHEMY_DATABASE_URI=uri,
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY") if production else os.getenv("LOCAL_JWT_SECRET_KEY", secrets.token_hex(32)),
+        JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=12),
+        FRONTEND_URL=os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/"),
+        MAIL_SERVER="smtp.gmail.com",
+        MAIL_PORT=587,
+        MAIL_USE_TLS=True,
+        MAIL_USE_SSL=False,
+        MAIL_USERNAME=os.getenv("MAIL_USERNAME") if production else None,
+        MAIL_PASSWORD=os.getenv("MAIL_PASSWORD") if production else None,
+        MAIL_DEFAULT_SENDER=os.getenv("MAIL_USERNAME", "local@willsite.test"),
+        MAIL_SUPPRESS_SEND=not production,
+        NOTIFICATIONS_ENABLED=production,
+    )
+    if test_config:
+        app.config.update(test_config)
+    if not app.config["SQLALCHEMY_DATABASE_URI"]:
+        raise RuntimeError("DATABASE_URL é obrigatória em produção.")
+    if not app.config["JWT_SECRET_KEY"]:
+        raise RuntimeError("JWT_SECRET_KEY é obrigatória em produção.")
+    engine_options = {"pool_pre_ping": True, "pool_recycle": 300}
+    if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql"):
+        engine_options.update(pool_size=5, max_overflow=5, pool_timeout=30, connect_args={"connect_timeout": 10})
+    app.config.setdefault("SQLALCHEMY_ENGINE_OPTIONS", engine_options)
 
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "sgat-super-secret-key-32-chars-long-minimum")
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=12)
-
-    # Configurações de E-mail (Gmail TLS - Mais compatível com Render)
-    app.config["MAIL_SERVER"] = "smtp.gmail.com"
-    app.config["MAIL_PORT"] = 587
-    app.config["MAIL_USE_TLS"] = True
-    app.config["MAIL_USE_SSL"] = False
-    app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-    app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_USERNAME")
-
-    # Inicialização das Extensões
-    # Opção B: Permitir localhost + sua URL do ngrok (Mais seguro)
-    CORS(
-        app, resources={r"/*": {"origins": "*"}}, supports_credentials=True
-    )  # Libera geral para teste com ngrok
-
+    origins = os.getenv("CORS_ORIGINS", app.config["FRONTEND_URL"]).split(",")
+    CORS(app, resources={r"/api/*": {"origins": [origin.strip() for origin in origins]}})
     db.init_app(app)
-    migrate.init_app(app, db)
+    migrate.init_app(app, db, directory=str(backend_dir / "migrations"))
     jwt.init_app(app)
-    mail.init_app(app)  # Conecta o mail ao app aqui
+    mail.init_app(app)
 
-    # Importação dos models para o create_all enxergar
     from . import models
-
-    # Registro de Blueprints
     from .routes.auth import auth_bp
     from .routes.os_management import os_bp
     from .routes.inventory import inventory_bp
     from .routes.devices import devices_bp
-    from app.routes.vendors import vendors_bp
+    from .routes.vendors import vendors_bp
+    from .security import enforce_access
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(os_bp, url_prefix="/api/os")
     app.register_blueprint(inventory_bp, url_prefix="/api/estoque")
     app.register_blueprint(devices_bp, url_prefix="/api/devices")
     app.register_blueprint(vendors_bp, url_prefix="/api/vendors")
+    app.before_request(enforce_access)
 
-    ensure_db_schema(app)
-
-    # Logo após criar o app = Flask(__name__)
-
-    @app.route("/")
+    @app.get("/healthz")
+    @app.get("/api/healthz")
     def health_check():
-        return {"status": "Backend Online", "service": "WillSite API"}, 200
+        return jsonify(status="ok", service="WillSite API")
 
-    @app.route("/", defaults={"path": ""})
-    @app.route("/<path:path>")
+    @app.get("/api/readyz")
+    def readiness_check():
+        try:
+            db.session.execute(text("SELECT 1"))
+            return jsonify(status="ok")
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Banco indisponível")
+            return jsonify(status="unavailable"), 503
+
+    @app.after_request
+    def prevent_private_caching(response):
+        if request.path.startswith("/api/") or request.path == "/healthz":
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/", defaults={"path": ""})
+    @app.get("/<path:path>")
     def serve(path):
-        if path != "" and os.path.exists(os.path.join(app.template_folder, path)):
-            return send_from_directory(app.template_folder, path)
-        else:
-            return send_from_directory(app.template_folder, "index.html")
+        if path.startswith("api/"):
+            return jsonify(msg="Rota não encontrada"), 404
+        if build_dir.is_dir():
+            if path and (build_dir / path).is_file():
+                return send_from_directory(build_dir, path)
+            return send_from_directory(build_dir, "index.html")
+        return jsonify(status="Backend Online", service="WillSite API"), 200 if not path else 404
 
     return app

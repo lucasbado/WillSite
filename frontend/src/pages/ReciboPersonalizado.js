@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Printer, User, Smartphone, Package, Plus, Trash2, Search, ChevronDown, CheckCircle2, Monitor, MapPin, Phone, IdCard, Cpu } from 'lucide-react';
+import { ArrowLeft, Printer, User, Smartphone, Package, Plus, Trash2, Search, ChevronDown, CheckCircle2, MapPin, Phone, IdCard, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { IMaskInput } from 'react-imask';
-import html2pdf from 'html2pdf.js';
+
 import api from './api';
+import notify from '../utils/notifications';
 
 const ReciboPersonalizado = () => {
     const navigate = useNavigate();
@@ -18,7 +19,6 @@ const ReciboPersonalizado = () => {
         data: new Date().toISOString().split('T')[0],
         pecas: [{ nome: '', quantidade: 1 }]
     });
-    const [erroCPF, setErroCPF] = useState('');
     const [statusCPF, setStatusCPF] = useState('ocioso'); // 'ocioso', 'encontrado', 'novo', 'invalido'
 
     const [showClientes, setShowClientes] = useState(false);
@@ -67,7 +67,6 @@ const ReciboPersonalizado = () => {
         }));
         setStatusCPF('encontrado'); // Selecionado da base, então existe!
         setShowClientes(false);
-        setErroCPF('');
     };
 
     const handleCEP = async (valorLimpo) => {
@@ -114,7 +113,7 @@ const ReciboPersonalizado = () => {
     const exportarPDFEEnviar = () => {
         const numeroLimpo = recibo.telefone.replace(/\D/g, '');
         if (!numeroLimpo || numeroLimpo.length < 10) {
-            alert('Por favor, insira um número de WhatsApp válido.');
+            notify.warning('Insira um número de WhatsApp válido.');
             return;
         }
 

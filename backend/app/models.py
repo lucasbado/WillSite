@@ -104,6 +104,9 @@ class WorkOrder(db.Model):
     verification_code = db.Column(db.String(4), nullable=True) # Código de 4 dígitos
     ready_at = db.Column(db.DateTime, nullable=True) # Quando ficou pronto
     code_expires_at = db.Column(db.DateTime, nullable=True) # DATA DE EXPIRAÇÃO
+    verification_attempts = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    delivery_bypassed = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    delivered_by_id = db.Column(db.Integer, db.ForeignKey("users.id", name="fk_work_orders_delivered_by_id_users"), nullable=True)
         
     
 
@@ -117,7 +120,7 @@ class WorkOrder(db.Model):
     items_used = db.relationship(
         "ConsumedItem", backref="work_order", cascade="all, delete-orphan"
     )
-    client = db.relationship("User", backref="my_orders")
+    client = db.relationship("User", foreign_keys=[client_id], backref="my_orders")
 
 
 class ConsumedItem(db.Model):
