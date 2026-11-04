@@ -34,9 +34,8 @@ test('relato e modelo da conversa são usados no orçamento e preservados ao con
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
     fireEvent.click(await screen.findByRole('button', { name: /Conversar com a Cidi/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Concordo, conversar com IA' }));
-    send('Tô com problemas na tela do meu S23');
-    await screen.findByText('Posso consultar a estimativa para essa tela.');
-    fireEvent.click(screen.getByRole('button', { name: 'Ver estimativa de orçamento' }));
+    send('Tô com problemas na tela do meu S23, queria um orçamento');
+    await screen.findByText(/Vamos conferir o orçamento antes de combinar uma visita/);
     expect(screen.getByLabelText('Modelo para orçamento')).toHaveValue('S23');
     fireEvent.change(screen.getByLabelText('Serviço para orçamento'), { target: { value: 'tela' } });
     api.post.mockResolvedValueOnce({ data: { status: 'pending', model: 'Samsung Galaxy S23', team_notified: true } });

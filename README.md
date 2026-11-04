@@ -29,6 +29,8 @@ Abra `http://localhost:3000`. O frontend usa `/api` e o proxy encaminha ao backe
 
 A abertura do chat diferencia **conversa com IA** (após consentimento para envio ao Groq) e **formulário por etapas**. O campo de mensagem só aparece depois da escolha. Modelo e sintomas identificados na conversa são reaproveitados na consulta de orçamento.
 
+Quando o cliente pede um orçamento na conversa, a consulta de preços tem prioridade sobre o agendamento: após identificar o modelo, a Cidi abre a confirmação do modelo/serviço antes de propor a visita.
+
 Em **Administrador → Estoque → Orçamentos e pendências da Cidi**, cadastre o modelo completo, serviço, peça compatível e mão de obra. A estimativa é calculada no servidor com **preço de venda da peça + mão de obra daquele modelo/serviço**, em decimal. Custo de compra não é exibido ao cliente nem enviado ao Groq. Mão de obra vazia fica pendente; zero representa isenção explícita. A ligação da peça ao modelo e serviço é responsabilidade do administrador; a IA não escolhe peças por semelhança.
 
 S23, S23 Plus e S23 Ultra são modelos distintos. Aliases de marca/linha e tags cadastradas em DeviceModel podem auxiliar a busca; correspondências ambíguas exigem escolha do cliente. Inicialmente o catálogo oferece tela, bateria, conector de carga e tampa traseira. Outros reparos continuam dependendo da avaliação da equipe.

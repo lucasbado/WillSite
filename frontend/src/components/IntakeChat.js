@@ -30,6 +30,7 @@ export default function IntakeChat() {
     const [receipt, setReceipt] = useState(null);
     const requestId = useRef(saved?.requestId || newIntakeId());
     const pending = useRef(false);
+    const quoteRequested = useRef(false);
     const launcher = useRef(null);
     const panel = useRef(null);
     const scroller = useRef(null);
@@ -75,6 +76,7 @@ export default function IntakeChat() {
         const history = [...messages, { role: 'user', content }];
         setMessages(history.slice(-24));
         if (mode === 'ai' && consent) {
+            if (/or[çc]amento|pre[çc]o|\bvalor\b|quanto.*(?:custa|fica|sai)/i.test(content)) quoteRequested.current = true;
             pending.current = true; setBusy(true);
             try {
                 const res = await api.post('/assistant/message', { consent: true,
@@ -83,8 +85,13 @@ export default function IntakeChat() {
                     const data = { modelo: res.data.modelo, problema: res.data.problema, data_entrega: res.data.data_entrega };
                     setDraft(data);
                     const ready = nextStep(data) === 'review';
-                    say(ready ? 'Anotei o aparelho, o relato e sua preferência de visita. Confira o resumo abaixo e corrija o que precisar antes de enviar. A equipe ainda vai confirmar o horário.' : res.data.reply);
-                    if (ready) setStep('review');
+                    if (quoteRequested.current && data.modelo) {
+                        quoteRequested.current = false; setQuoteReturn('menu'); setStep('quote');
+                        say('Vamos conferir o orçamento antes de combinar uma visita. Já aproveitei o modelo informado; confirme a versão e escolha o serviço abaixo.');
+                    } else {
+                        say(ready ? 'Anotei o aparelho, o relato e sua preferência de visita. Confira o resumo abaixo e corrija o que precisar antes de enviar. A equipe ainda vai confirmar o horário.' : res.data.reply);
+                        if (ready) setStep('review');
+                    }
                 } else {
                     const next = nextStep(draft);
                     setMode('guided'); setStep(next);
@@ -139,7 +146,7 @@ export default function IntakeChat() {
 
     const reset = () => {
         if (pending.current) return;
-        clearIntake(); requestId.current = newIntakeId(); setDraft({ ...EMPTY_INTAKE }); setReceipt(null);
+        clearIntake(); requestId.current = newIntakeId(); quoteRequested.current = false; setDraft({ ...EMPTY_INTAKE }); setReceipt(null);
         setStep('menu'); setMode('choose'); setConsent(false); setMessages([{ role: 'assistant', content: WELCOME }]); setError(''); setText(''); setAgreed(false); setShowConsent(false);
     };
 

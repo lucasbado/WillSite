@@ -174,6 +174,13 @@ class IntakeAssistantTests(unittest.TestCase):
             self.assertNotIn('250', result['reply'])
             self.assertIn('Ver estimativa', result['reply'])
 
+    def test_quote_request_takes_priority_over_provider_visit_prompt(self):
+        self.enable()
+        with patch('app.services.assistant.requests.post', return_value=completion(reply='Que dia você quer deixar o aparelho?')):
+            result = self.chat(messages=[{'role': 'user', 'content': 'Queria orçamento da tela do S23'}]).json
+            self.assertIn('Ver estimativa', result['reply'])
+            self.assertNotIn('Que dia', result['reply'])
+
 
 if __name__ == '__main__':
     unittest.main()

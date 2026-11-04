@@ -177,7 +177,11 @@ def respond(messages, draft):
             choice = body['choices'][0]
             if choice.get('finish_reason') != 'stop':
                 raise ValueError('Resposta incompleta')
-            return validate_result(json.loads(choice['message']['content']))
+            result = validate_result(json.loads(choice['message']['content']))
+            if re.search(r'or[çc]amento|pre[çc]o|\bvalor\b|quanto.*(?:custa|fica|sai)', messages[-1]['content'], re.I):
+                result['reply'] = ('Para consultar o valor, confira o modelo e escolha o serviço em “Ver estimativa de orçamento”. A consulta usa o preço da peça e a mão de obra cadastrados pela equipe.'
+                    if result['modelo'] else 'Posso ajudar a consultar o orçamento. Qual é o modelo completo do aparelho?')
+            return result
         except (requests.RequestException, ValueError, KeyError, TypeError, IndexError) as error:
             current_app.logger.warning('Assistente Groq: modelo=%s falha=%s', model, type(error).__name__)
             cooldown(model, 30)
