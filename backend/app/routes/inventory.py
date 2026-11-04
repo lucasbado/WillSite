@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
-from ..models import db, InventoryItem, InventoryLoss
+from ..models import db, InventoryItem, InventoryLoss, RepairOffering
+from ..services.inventory import item_data, quote_data
+from sqlalchemy.exc import IntegrityError
 from app.models import DeviceModel
 
 
@@ -42,20 +44,25 @@ def listar_estoque():
 @inventory_bp.route("/adicionar", methods=["POST"])
 @jwt_required()
 def adicionar_item():
-    data = request.json
-    novo_item = InventoryItem(
-        nome=data.get("nome"),
-        categoria=data.get("categoria", "Geral"),
-        descricao=data.get("descricao"),
-        quantidade=data.get("quantidade", 0),
-        minimo=data.get("minimo", 5),
-        modelo_compativel=data.get("modelo_compativel"),
-        preco_custo=data.get("preco_custo", 0.0),  # <--- AQUI
-        preco_venda=data.get("preco_venda", 0.0),  # <--- AQUI
-    )
+    data = request.get_json(silent=True)
+    try:
+        values = item_data(data)
+        quote = quote_data(data.get('quote'), values)
+    except ValueError as error:
+        return jsonify(msg=str(error)), 400
+    if quote and RepairOffering.query.filter_by(model_key=quote['model_key'], service=quote['service']).first():
+        return jsonify(msg='Já existe um orçamento desse modelo e serviço. Desmarque a opção da Cidi para cadastrar só a peça, ou edite o orçamento existente.'), 409
+    novo_item = InventoryItem(**values)
     db.session.add(novo_item)
-    db.session.commit()
-    return jsonify({"msg": "Item cadastrado!"}), 201
+    try:
+        db.session.flush()
+        if quote:
+            db.session.add(RepairOffering(inventory_item_id=novo_item.id, **quote))
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(msg='O cadastro não foi salvo. Confira se esse orçamento já existe e tente novamente.'), 409
+    return jsonify(msg='Peça e orçamento cadastrados!' if quote else 'Item cadastrado!', id=novo_item.id), 201
 
 
 @inventory_bp.route("/filtrar-por-modelo", methods=["GET"])
@@ -165,17 +172,14 @@ def registrar_perda(item_id):
 @inventory_bp.route("/editar/<int:item_id>", methods=["PATCH"])
 @jwt_required()
 def editar_item(item_id):
-    data = request.get_json()
+    data = request.get_json(silent=True)
     item = InventoryItem.query.get_or_404(item_id)
-
-    item.nome = data.get("nome", item.nome)
-    item.descricao = data.get("descricao", item.descricao)
-    item.categoria = data.get("categoria", item.categoria)
-    item.quantidade = data.get("quantidade", item.quantidade)
-    item.minimo = data.get("minimo", item.minimo)
-    item.modelo_compativel = data.get("modelo_compativel", item.modelo_compativel)
-    item.preco_custo = data.get("preco_custo", item.preco_custo)
-    item.preco_venda = data.get("preco_venda", item.preco_venda)
+    try:
+        values = item_data(data, existing=item)
+    except ValueError as error:
+        return jsonify(msg=str(error)), 400
+    for field, value in values.items():
+        setattr(item, field, value)
 
     db.session.commit()
     return jsonify({"msg": "Inventário atualizado com sucesso!"}), 200
