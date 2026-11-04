@@ -30,7 +30,8 @@ test('pendência não mostra total parcial e informa que o administrador foi avi
     api.post.mockResolvedValue({ data: { status: 'pending', model: 'S23', team_notified: true } });
     render(<RepairQuote model="S23" onVisit={jest.fn()} />);
     consult();
-    expect(await screen.findByRole('status')).toHaveTextContent('pendência já apareceu para o administrador');
+    expect(await screen.findByRole('status')).toHaveTextContent('solicitação foi encaminhada para a equipe');
+    expect(screen.getByRole('status')).not.toHaveTextContent(/completar o preço|preço incompleto|cadastro/i);
     expect(screen.queryByText(/Estimativa:/)).not.toBeInTheDocument();
 });
 

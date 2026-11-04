@@ -4,8 +4,17 @@ from flask_jwt_extended import jwt_required
 # IMPORTANTE: Adicione o or_ aqui
 from sqlalchemy import or_
 from ..models import db, DeviceModel
+from ..services.device_matching import identify
 
 devices_bp = Blueprint("devices", __name__)
+
+
+@devices_bp.get('/identificar')
+def identificar_modelo():
+    value = request.args.get('q', '').strip()
+    if not 2 <= len(value) <= 100:
+        return jsonify(msg='Informe o modelo do aparelho em até 100 caracteres.'), 400
+    return jsonify(identify(value))
 
 
 @devices_bp.route("/listar", methods=["GET"])

@@ -14,6 +14,34 @@ const send = content => {
     fireEvent.click(screen.getByRole('button', { name: 'Enviar mensagem' }));
 };
 
+test('modelo parecido da IA exige confirmação e preserva o relato antes do orçamento', async () => {
+    api.get.mockResolvedValue({ data: { ai_available: true } });
+    api.post.mockResolvedValue({ data: { mode: 'ai', reply: 'Qual é o seu aparelho?', modelo: 'galaxi s23', problema: 'Tela quebrada', data_entrega: '', model_match: { status: 'suggested', options: ['Samsung Galaxy S23'] } } });
+    render(<IntakeChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Conversar com a Cidi/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Concordo, conversar com IA' }));
+    send('Queria orçamento para meu galaxi s23');
+    const confirm = await screen.findByRole('button', { name: 'Samsung Galaxy S23' });
+    expect(screen.queryByLabelText('Modelo para orçamento')).not.toBeInTheDocument();
+    fireEvent.click(confirm);
+    expect(screen.getByLabelText('Modelo para orçamento')).toHaveValue('Samsung Galaxy S23');
+    expect(api.post).toHaveBeenCalledTimes(1);
+});
+
+test('formulário reconhece modelo sem marca pelo cadastro local, sem usar IA', async () => {
+    api.get.mockImplementation(url => Promise.resolve({ data: url === '/devices/identificar' ? { status: 'matched', model: 'Marca Nova Z99', options: [] } : { ai_available: false } }));
+    render(<IntakeChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento da Cidi' }));
+    fireEvent.click(screen.getByRole('button', { name: /Preencher por etapas/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Levar meu aparelho' }));
+    send('Z99');
+    await screen.findByText('O que acontece com ele? Pode explicar com suas palavras.');
+    fireEvent.click(screen.getByRole('button', { name: 'Ver estimativa de orçamento' }));
+    expect(screen.getByLabelText('Modelo para orçamento')).toHaveValue('Marca Nova Z99');
+    expect(api.post).not.toHaveBeenCalled();
+});
+
 test('início distingue conversa livre e formulário antes de oferecer campo de mensagem', async () => {
     api.get.mockResolvedValue({ data: { ai_available: true } });
     render(<IntakeChat />);
@@ -51,7 +79,9 @@ async function review() {
     await waitFor(() => expect(api.get).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: /Preencher por etapas/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Levar meu aparelho' }));
-    send('Samsung Galaxy A15'); send('Não carrega desde ontem');
+    send('Samsung Galaxy A15');
+    await screen.findByText('O que acontece com ele? Pode explicar com suas palavras.');
+    send('Não carrega desde ontem');
     fireEvent.change(screen.getByLabelText('Dia e horário preferidos (Brasília)'), { target: { value: future() } });
     fireEvent.click(screen.getByRole('button', { name: 'Revisar solicitação' }));
     fireEvent.click(screen.getByLabelText('Entendi que a equipe vai confirmar o horário antes da visita.'));
@@ -116,7 +146,8 @@ test('esgotamento da cascata continua por etapas e mantém relato não processad
     await screen.findByText(/Continuamos por etapas/);
     expect(screen.getByLabelText('Sua mensagem para a Cidi')).toHaveValue('Galaxy A15');
     fireEvent.click(screen.getByRole('button', { name: 'Enviar mensagem' }));
-    expect(screen.getByRole('log')).toHaveTextContent('O que acontece com ele?');
+    await screen.findByText('O que acontece com ele? Pode explicar com suas palavras.');
+    await screen.findByText('O que acontece com ele? Pode explicar com suas palavras.');
     expect(api.post).toHaveBeenCalledTimes(1);
 });
 
@@ -144,7 +175,7 @@ test('palavras de dúvidas dentro do relato não substituem os dados coletados',
     fireEvent.click(screen.getByRole('button', { name: /Preencher por etapas/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Levar meu aparelho' }));
     send('Galaxy A15 - teste de atendimento');
-    expect(screen.getByRole('log')).toHaveTextContent('O que acontece com ele?');
+    await screen.findByText('O que acontece com ele? Pode explicar com suas palavras.');
     send('O aparelho não liga depois do backup');
     expect(screen.getByLabelText('Dia e horário preferidos (Brasília)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Dia e horário preferidos (Brasília)'), { target: { value: future() } });

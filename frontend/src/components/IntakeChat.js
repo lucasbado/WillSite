@@ -7,7 +7,7 @@ import { requestError } from '../utils/requestError';
 import { clearIntake, EMPTY_INTAKE, faqAnswer, intakeError, localDateTime, newIntakeId, restoreIntake, saveIntake } from '../utils/intake';
 
 const WELCOME = 'Olá! Sou a Cidi, assistente virtual da Cidinho. Posso ajudar com uma estimativa de orçamento, explicar o atendimento e combinar sua ida à loja. Escolha como prefere conversar para começar.';
-const PROMPTS = { model: 'Qual é a marca e o modelo do aparelho? Se não souber, escreva o que aparece na caixa ou no aparelho.', problem: 'O que acontece com ele? Pode explicar com suas palavras.', date: 'Em qual dia e horário você prefere deixar o aparelho? Escolha abaixo. A equipe ainda vai confirmar a disponibilidade.' };
+const PROMPTS = { model: 'Qual é o modelo do aparelho? Pode escrever só o modelo, como S23 ou iPhone 13. Se não souber, escreva o que aparece na caixa ou no aparelho.', problem: 'O que acontece com ele? Pode explicar com suas palavras.', date: 'Em qual dia e horário você prefere deixar o aparelho? Escolha abaixo. A equipe ainda vai confirmar a disponibilidade.' };
 const control = 'w-full border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-3 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-base outline-none focus:ring-2 focus:ring-blue-500';
 
 export default function IntakeChat() {
@@ -24,6 +24,7 @@ export default function IntakeChat() {
     const [mode, setMode] = useState(saved ? 'guided' : 'choose');
     const [configLoaded, setConfigLoaded] = useState(false);
     const [quoteReturn, setQuoteReturn] = useState('menu');
+    const [modelChoices, setModelChoices] = useState([]);
     const [consent, setConsent] = useState(false);
     const [showConsent, setShowConsent] = useState(false);
     const [agreed, setAgreed] = useState(false);
@@ -72,7 +73,7 @@ export default function IntakeChat() {
         event.preventDefault();
         const content = text.trim();
         if (!content || pending.current || mode === 'choose') return;
-        setText(''); setError('');
+        setText(''); setError(''); setModelChoices([]);
         const history = [...messages, { role: 'user', content }];
         setMessages(history.slice(-24));
         if (mode === 'ai' && consent) {
@@ -85,7 +86,9 @@ export default function IntakeChat() {
                     const data = { modelo: res.data.modelo, problema: res.data.problema, data_entrega: res.data.data_entrega };
                     setDraft(data);
                     const ready = nextStep(data) === 'review';
-                    if (quoteRequested.current && data.modelo) {
+                    if (res.data.model_match?.options?.length) {
+                        setModelChoices(res.data.model_match.options); say(res.data.reply);
+                    } else if (quoteRequested.current && data.modelo) {
                         quoteRequested.current = false; setQuoteReturn('menu'); setStep('quote');
                         say('Vamos conferir o orçamento antes de combinar uma visita. Já aproveitei o modelo informado; confirme a versão e escolha o serviço abaixo.');
                     } else {
@@ -110,7 +113,19 @@ export default function IntakeChat() {
         if (answer) { say(answer + (PROMPTS[step] ? '\n\n' + PROMPTS[step] : '')); return; }
         if (step === 'model') {
             if (content.length < 2 || content.length > 100) { say('Escreva a marca e o modelo em até 100 caracteres.'); return; }
-            setDraft({ ...draft, modelo: content }); setStep('problem'); say(PROMPTS.problem);
+            pending.current = true; setBusy(true);
+            try {
+                const { data: match } = await api.get('/devices/identificar', { params: { q: content }, timeout: 5000 });
+                if (match.options?.length) {
+                    setDraft({ ...draft, modelo: content }); setModelChoices(match.options);
+                    say('Encontrei modelos parecidos. Qual é o seu aparelho? Escolha abaixo.');
+                } else {
+                    setDraft({ ...draft, modelo: match.status === 'matched' ? match.model : content });
+                    setStep('problem'); say(PROMPTS.problem);
+                }
+            } catch {
+                setDraft({ ...draft, modelo: content }); setStep('problem'); say(PROMPTS.problem);
+            } finally { pending.current = false; setBusy(false); }
         } else if (step === 'problem') {
             if (content.length < 5) { say('Pode contar um pouco mais sobre o que acontece?'); return; }
             setDraft({ ...draft, problema: content }); setStep('date'); say(PROMPTS.date);
@@ -146,7 +161,7 @@ export default function IntakeChat() {
 
     const reset = () => {
         if (pending.current) return;
-        clearIntake(); requestId.current = newIntakeId(); quoteRequested.current = false; setDraft({ ...EMPTY_INTAKE }); setReceipt(null);
+        clearIntake(); requestId.current = newIntakeId(); quoteRequested.current = false; setModelChoices([]); setDraft({ ...EMPTY_INTAKE }); setReceipt(null);
         setStep('menu'); setMode('choose'); setConsent(false); setMessages([{ role: 'assistant', content: WELCOME }]); setError(''); setText(''); setAgreed(false); setShowConsent(false);
     };
 
@@ -165,6 +180,17 @@ export default function IntakeChat() {
                     <div role="log" aria-label="Conversa com a Cidi" aria-live="polite" aria-relevant="additions" className="space-y-3">
                         {messages.map((item, index) => <p key={index} className={`max-w-[95%] px-4 py-3 rounded-2xl whitespace-pre-wrap break-words text-base leading-relaxed ${item.role === 'user' ? 'ml-auto bg-blue-600 text-white rounded-br-sm' : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100 rounded-bl-sm'}`}><span className="sr-only">{item.role === 'user' ? 'Você: ' : 'Cidi: '}</span>{item.content}</p>)}
                     </div>
+                    {modelChoices.length > 0 && <div className="space-y-2" aria-label="Confirmar modelo do aparelho">
+                        {modelChoices.map(model => <button key={model} type="button" disabled={busy} className="chat-choice" onClick={() => {
+                            const data = { ...draft, modelo: model }; setDraft(data); setModelChoices([]);
+                            if (quoteRequested.current) {
+                                quoteRequested.current = false; setQuoteReturn('menu'); setStep('quote');
+                                say(`Aparelho confirmado: ${model}. Agora escolha o serviço para consultar o orçamento.`);
+                            } else {
+                                const next = nextStep(data); setStep(next); say(`Aparelho confirmado: ${model}. ` + (PROMPTS[next] || 'Confira seu pedido.'));
+                            }
+                        }}>{model}</button>)}
+                    </div>}
                     {mode === 'choose' && step !== 'quote' && <div className="space-y-3">
                         <p className="font-bold text-slate-900 dark:text-white">Como você prefere ser atendido?</p>
                         {!configLoaded && <p role="status" className="text-sm text-slate-500">Conferindo a conversa com IA…</p>}

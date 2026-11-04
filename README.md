@@ -35,6 +35,12 @@ Em **Administrador → Estoque → Orçamentos e pendências da Cidi**, cadastre
 
 S23, S23 Plus e S23 Ultra são modelos distintos. Aliases de marca/linha e tags cadastradas em DeviceModel podem auxiliar a busca; correspondências ambíguas exigem escolha do cliente. Inicialmente o catálogo oferece tela, bateria, conector de carga e tampa traseira. Outros reparos continuam dependendo da avaliação da equipe.
 
+A identificação consulta o banco a cada pedido: usa marca, modelo, código técnico e tags de DeviceModel, além dos modelos do catálogo de serviços e da compatibilidade das peças. Modelos novos entram automaticamente, sem atualizar uma lista fixa ou reiniciar o servidor. A marca pode ser omitida quando há correspondência única. Escritas parecidas geram sugestões para confirmação; números e versões são preservados. A busca funciona na conversa com IA, no formulário por etapas e na consulta de orçamento. Nenhum preço é calculado a partir de uma sugestão ainda não confirmada.
+
+Em cadastros antigos com compatibilidade Geral/Universal, nomes como "Bateria S23" e "Tela iPhone 13" também podem auxiliar a identificação. Essa leitura não altera o cadastro, não atribui compatibilidade à peça e não substitui o vínculo explícito exigido para orçar.
+
+Para o cliente, uma cotação pendente informa apenas que a equipe precisa conferir a peça e a disponibilidade antes de passar um valor. Os motivos de preço/cadastro continuam disponíveis somente na interface administrativa.
+
 Sem serviço cadastrado, peça vinculada, estoque ou preço válido, nenhum total incompleto é mostrado. Consultas de clientes autenticados e verificados registram demandas agregadas por modelo/serviço; visitantes podem consultar estimativas sem gerar pendências persistentes. O administrador vê demandas recentes (até 500 combinações) e peças sem preço de venda. As pendências são recalculadas com o cadastro atual e desaparecem após a correção. O painel verifica avisos a cada minuto e há atualização manual no estoque.
 
 Consultar orçamento não cria OS, não baixa/reserva estoque e não altera finanças. A estimativa depende da avaliação técnica. A migração **0004** adiciona apenas repair_offerings e quote_demands; não preenche preços nem gera dados de demonstração em produção.

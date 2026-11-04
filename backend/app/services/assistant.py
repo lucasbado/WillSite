@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .. import db
 from ..models import AssistantBucket
+from .device_matching import entries, identify
 
 FIELDS = {'reply': 1200, 'modelo': 100, 'problema': 3000, 'data_entrega': 16}
 SCHEMA = {'type': 'object', 'properties': {key: {'type': 'string'} for key in FIELDS},
@@ -22,6 +23,11 @@ Fale português simples e acolhedor. Até 3 frases curtas, UMA pergunta por vez.
 Ajude a identificar modelo do aparelho, sintomas e preferência de dia/hora para DEIXÁ-LO na loja.
 Extraia juntos modelo e sintomas quando vierem na mesma frase: "tela do meu s23"
 já informa modelo S23 e problema na tela. Não pergunte de novo por informação fornecida.
+Aceite modelo sem marca: não exija a marca quando o aparelho já foi identificado.
+O contexto pode incluir a identificação feita pelo cadastro local. Use essa identificação.
+Se não conseguir identificar, preserve o texto e peça confirmação em vez de inventar marca.
+Quando depender da equipe para um orçamento, diga apenas que ela precisa conferir a peça
+e a disponibilidade. Não fale em preço incompleto, cadastro faltando ou falhas do site.
 Se o cliente pedir preço, explique que o botão "Ver estimativa de orçamento" consulta
 o cadastro da loja (peça + mão de obra); ajude a esclarecer o modelo e o serviço desejado.
 Não calcule nem escreva valores monetários: o site mostra o orçamento conferido pelo servidor.
@@ -127,7 +133,9 @@ def validate_result(result):
     if not result['reply'].strip():
         raise ValueError('Resposta vazia')
     if re.search(r'R\$|\bBRL\b|\b\d+(?:[.,]\d+)?\s*(?:reais|real)\b', result['reply'], re.I):
-        result = {**result, 'reply': 'Para consultar valores, toque em “Ver estimativa de orçamento”. O site confere o preço da peça e a mão de obra cadastrados para seu modelo e serviço.'}
+        result = {**result, 'reply': 'Para consultar valores, toque em “Ver estimativa de orçamento”. A equipe pode precisar conferir a peça e a disponibilidade.'}
+    if re.search(r'pre[çc]o.{0,35}(?:incomplet|ausente|falt|cadastr)|(?:falt|complet).{0,35}pre[çc]o|cadastro.{0,35}(?:falt|incomplet)', result['reply'], re.I):
+        result = {**result, 'reply': 'A equipe precisa conferir a peça e a disponibilidade antes de passar um valor.'}
     if result['data_entrega']:
         datetime.strptime(result['data_entrega'], '%Y-%m-%dT%H:%M')
     return result
@@ -136,8 +144,14 @@ def validate_result(result):
 def respond(messages, draft):
     models = current_app.config['GROQ_MODELS']
     deadline = time.monotonic() + 18
+    registry = entries()
+    incoming = identify(messages[-1]['content'], registry)
+    known = incoming if incoming['status'] == 'matched' else identify(draft.get('modelo', ''), registry)
     context = {'data_atual_sao_paulo': datetime.now(pytz.timezone('America/Sao_Paulo')).isoformat(),
                'rascunho': {key: scrub(draft.get(key, '')) for key in FIELDS if key != 'reply'}}
+    if known['status'] == 'matched':
+        context['modelo_identificado_no_cadastro'] = known['model']
+        context['rascunho']['modelo'] = known['model']
     # Conta, token, histórico de OS e dados de cadastro nunca entram no prompt.
     prompt = [{'role': 'system', 'content': INSTRUCTIONS},
               {'role': 'user', 'content': 'Contexto para revisão: ' + json.dumps(context, ensure_ascii=False)}]
@@ -178,6 +192,15 @@ def respond(messages, draft):
             if choice.get('finish_reason') != 'stop':
                 raise ValueError('Resposta incompleta')
             result = validate_result(json.loads(choice['message']['content']))
+            match = incoming if incoming['status'] != 'unknown' else identify(result['modelo'] or draft.get('modelo', ''), registry)
+            if match['status'] == 'matched':
+                result['modelo'] = match['model']
+                if re.search(r'(qual|informe|diga).{0,35}(marca|modelo)', result['reply'], re.I):
+                    result['reply'] = ('Já identifiquei o aparelho. O que está acontecendo com ele?' if not result['problema']
+                        else 'Já identifiquei o aparelho e o relato. Você quer consultar um orçamento ou combinar uma visita?')
+            elif match['status'] in {'suggested', 'ambiguous'}:
+                result['model_match'] = match
+                result['reply'] = 'Encontrei modelos que podem corresponder ao que você escreveu. Escolha abaixo qual é o seu aparelho.'
             if re.search(r'or[çc]amento|pre[çc]o|\bvalor\b|quanto.*(?:custa|fica|sai)', messages[-1]['content'], re.I):
                 result['reply'] = ('Para consultar o valor, confira o modelo e escolha o serviço em “Ver estimativa de orçamento”. A consulta usa o preço da peça e a mão de obra cadastrados pela equipe.'
                     if result['modelo'] else 'Posso ajudar a consultar o orçamento. Qual é o modelo completo do aparelho?')

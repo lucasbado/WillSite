@@ -5,6 +5,7 @@ import unicodedata
 
 from .. import db
 from ..models import DeviceModel, InventoryItem, RepairOffering
+from .device_matching import entries, identify
 
 SERVICES = {'tela': 'Troca de tela', 'bateria': 'Troca de bateria',
             'conector': 'Troca do conector de carga', 'tampa': 'Troca da tampa traseira'}
@@ -47,9 +48,6 @@ def catalog_snapshot():
 def candidates(model, service, catalog):
     query_key = key(model)
     offerings, devices, _ = catalog
-    exact = [item for item in offerings if item.model_key == query_key and item.service == service]
-    if exact:
-        return exact
     matches = []
     for offering in offerings:
         if offering.service != service:
@@ -68,9 +66,15 @@ def candidates(model, service, catalog):
 
 def estimate(model, service, catalog=None):
     catalog = catalog if catalog is not None else catalog_snapshot()
-    matches = candidates(model, service, catalog)
+    match = identify(model, entries(catalog[1], catalog[0], list(catalog[2].values())))
     base = dict(model=model, service=service, service_label=SERVICES[service], currency='BRL',
                 disclaimer='Estimativa sujeita à avaliação técnica e à confirmação da equipe. Não reserva peça nem horário.')
+    if match['status'] in {'suggested', 'ambiguous'}:
+        return {**base, 'status': 'ambiguous', 'match_type': match['status'], 'options': match['options'], 'issues': []}
+    matches = candidates(model, service, catalog)
+    if not matches and match['status'] == 'matched':
+        matches = candidates(match['model'], service, catalog)
+        base['model'] = match['model']
     if len(matches) > 1:
         return {**base, 'status': 'ambiguous', 'options': [i.model for i in matches], 'issues': []}
     if not matches:
