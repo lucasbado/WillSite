@@ -21,6 +21,8 @@ from ..utils import (
 import base64
 import pyqrcode
 from ..security import accessible_order
+from ..services.intake import intake_payload
+from sqlalchemy.exc import IntegrityError
 from ..services.delivery import (
     DeliveryError, code_payload, confirm_delivery, finish_repair, issue_code,
 )
@@ -119,27 +121,36 @@ def abrir_os():
     if not user or not user.is_verified:
         return jsonify({"msg": "Sua conta ainda não foi verificada. Por favor, ative-a através do link enviado ao seu e-mail para abrir ordens de serviço."}), 403
 
-    data = request.json
+    data = intake_payload(request.get_json(silent=True))
+    key = data['intake_request_id']
 
-    # Captura a data que o cliente escolheu no calendário
-    data_cliente_str = data.get("data_entrega")  # Nome que vem do front
-    data_convertida = None
+    def existing_response():
+        existing = WorkOrder.query.filter_by(client_id=user_id, intake_request_id=key).first() if key else None
+        if not existing:
+            return None
+        if (existing.device_model != data['modelo'] or existing.problem_description != data['problema']
+                or existing.data_agendamento_entrega != data['date']):
+            raise DeliveryError('Esta solicitação já foi enviada com outros dados', 409)
+        return jsonify(msg='Solicitação já recebida. Aguarde a confirmação da equipe.', os_id=existing.id,
+                       agendamento_confirmado=False), 200
 
-    if data_cliente_str:
-        # Converte o formato do input datetime-local do navegador
-        data_convertida = datetime.strptime(data_cliente_str, "%Y-%m-%dT%H:%M")
-
-    nova_os = WorkOrder(
-        client_id=user_id,
-        device_model=data.get("modelo"),
-        problem_description=data.get("problema"),
-        data_agendamento_entrega=data_convertida,  # A data que ele vai levar
-        status="Pendente",  # Status inicial correto
-    )
-
+    previous = existing_response()
+    if previous:
+        return previous
+    nova_os = WorkOrder(client_id=user_id, device_model=data['modelo'],
+        problem_description=data['problema'], data_agendamento_entrega=data['date'],
+        intake_request_id=key, status='Pendente')
     db.session.add(nova_os)
-    db.session.commit()
-    return jsonify({"msg": "OS aberta com sucesso"}), 201
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        previous = existing_response()
+        if previous:
+            return previous
+        raise
+    return jsonify(msg='Solicitação recebida. Aguarde a confirmação do horário pela equipe.',
+                   os_id=nova_os.id, agendamento_confirmado=False), 201
 
 
 @os_bp.route("/admin/ocupacao", methods=["GET"])
@@ -338,24 +349,8 @@ def listar_todas_os():
                         else "Não informada"
                     ),
                     # --- LÓGICA INTELIGENTE BLINDADA ---
-                    "data_iso": (
-                        o.scheduled_date.strftime("%Y-%m-%d")
-                        if o.scheduled_date
-                        else (
-                            o.data_agendamento_entrega.strftime("%Y-%m-%d")
-                            if o.data_agendamento_entrega
-                            else None
-                        )
-                    ),
-                    "hora": (
-                        o.scheduled_date.strftime("%H:%M")
-                        if o.scheduled_date
-                        else (
-                            o.data_agendamento_entrega.strftime("%H:%M")
-                            if o.data_agendamento_entrega
-                            else "--:--"
-                        )
-                    ),
+                    "data_iso": o.scheduled_date.strftime("%Y-%m-%d") if o.scheduled_date else None,
+                    "hora": o.scheduled_date.strftime("%H:%M") if o.scheduled_date else "--:--",
                     "deadline": (
                         o.scheduled_date.strftime("%d/%m %H:%M")
                         if o.scheduled_date

@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { LayoutDashboard, Package, Users, CalendarCheck, X, Search, LogOut, ShieldAlert, Settings, ClipboardList, Receipt, Cpu, ChevronRight, Menu, FileText, Clock, AlertCircle, CheckCircle2, Calendar, Smartphone, ChevronLeft, Sparkles, MonitorCheckIcon, AlertTriangle, Zap, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Package, Users, CalendarCheck, X, Search, LogOut, ShieldAlert, Settings, ClipboardList, Receipt, Cpu, ChevronRight, Menu, FileText, Clock, AlertCircle, CheckCircle2, Calendar, Smartphone, ChevronLeft, MonitorCheckIcon, AlertTriangle, Zap, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
 import LoadNotice from '../components/LoadNotice';
+import MoneyInput from '../components/MoneyInput';
+import RepairReportAssistant from '../components/RepairReportAssistant';
+import { moneyValue } from '../utils/money';
 import { requestError } from '../utils/requestError';
 import { orderMatches, matchesAdminFilter } from '../utils/workOrders';
 import notify from '../utils/notifications';
@@ -56,6 +59,9 @@ const DashboardAdmin = () => {
 
     const abrirOrdem = (ordem) => {
         const atualizada = todasOS.find(item => item.id === ordem.id) || ordem;
+        if (selectedOS?.id !== atualizada.id) {
+            setLaudo(''); setPecasEscolhidas([]); setValorMaoObra(''); setCustoOperacional(''); setDescontoAplicado('');
+        }
         setSelectedOS(atualizada);
         setShowVerifyModal(atualizada.status === 'Pronto para Retirada');
         setShowConcluirModal(false);
@@ -118,38 +124,6 @@ const DashboardAdmin = () => {
         } catch (err) {
             notify.error(err.response?.data?.msg || "Erro ao gerar código");
         }
-    };
-
-
-    const gerarLaudoAutomatico = () => {
-        // Mapeamento de termos técnicos por ID ou Nome de peça
-        const termosTecnicos = {
-            'Tela': 'Substituição de conjunto frontal original com calibração de touch.',
-            'Bateria': 'Troca de célula de energia por componente de alta densidade e teste de ciclos.',
-            'Conector': 'Reparo no barramento de carga e desoxidação dos contatos internos.',
-            'Câmera': 'Substituição de módulo óptico e limpeza de sensores infravermelhos.',
-            'Tampa': 'Substituição de painel traseiro com vedação IP68 original.'
-        };
-
-        let rascunho = `Procedimento realizado para sanar o defeito: ${selectedOS.problema}.\n\n`;
-
-        // Filtra as peças que foram marcadas e pega os nomes
-        const pecasNomes = pecasSugeridas
-            .filter(p => pecasEscolhidas.includes(p.id))
-            .map(p => p.nome);
-
-        if (pecasNomes.length > 0) {
-            rascunho += "Ações executadas:\n";
-            pecasNomes.forEach(nome => {
-                // Tenta achar um termo técnico, se não, usa um padrão
-                const termo = Object.entries(termosTecnicos).find(([key]) => nome.includes(key))?.[1]
-                    || `Instalação de novo componente: ${nome}.`;
-                rascunho += `• ${termo}\n`;
-            });
-            rascunho += "\nTestes de pós-reparo concluídos com sucesso.";
-        }
-
-        setLaudo(rascunho.toUpperCase()); // Mantendo seu padrão de caixa alta brutalista
     };
 
 
@@ -490,6 +464,7 @@ const DashboardAdmin = () => {
 
     const handleFinalizarComCodigo = async () => {
         // Validação básica de segurança
+        if (loading) return;
         if (!selectedOS || !selectedOS.id) {
             notify.error("Erro: ID da OS não encontrado.");
             return;
@@ -499,18 +474,21 @@ const DashboardAdmin = () => {
         try {
             // 1. PASSO FINANCEIRO: Envia os custos para a rota de conclusão total
             // Certifique-se que o baseURL do seu 'api.js' não tenha um '/api' sobrando
-            await api.patch(`/os/admin/concluir-total/${selectedOS.id}`, {
-                laudo: laudo.toUpperCase(),
-                valor_mao_obra: parseFloat(valorMaoObra) || 0,
-                custo_operacional: parseFloat(custoOperacional) || 0,
-                desconto_aplicado: parseFloat(descontoAplicado) || 0,
+            const result = await api.patch(`/os/admin/concluir-total/${selectedOS.id}`, {
+                laudo: laudo.trim(),
+                valor_mao_obra: moneyValue(valorMaoObra) || 0,
+                custo_operacional: moneyValue(custoOperacional) || 0,
+                desconto_aplicado: moneyValue(descontoAplicado) || 0,
                 itens_ids: pecasEscolhidas // IDs das peças selecionadas no seu checklist
             });
 
             notify.success("Reparo finalizado. Aguardando confirmação da retirada.");
 
             // Reset de estados e fechamento
-            setShowConcluirModal(false);
+            setWhatsLinkPending(result.data.whatsapp_link || null);
+            setShowConcluirModal(Boolean(result.data.whatsapp_link));
+            setSelectedOS(previous => ({ ...previous, ...result.data.os_atualizada }));
+            if (result.data.notification_warning) notify.error(result.data.notification_warning);
             setLaudo("");
             setValorMaoObra(0);
             setCustoOperacional(0);
@@ -942,7 +920,7 @@ const DashboardAdmin = () => {
                                                                 : 'bg-slate-50 dark:bg-slate-950/50 border-transparent dark:border-slate-800'
                                                                 }`}>
                                                                 <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase leading-none mb-2 flex items-center gap-1 italic tracking-widest">
-                                                                    <CalendarCheck size={12} /> {os.status === 'Pronto para Retirada' ? 'RETIRADA' : 'DEADLINE'}
+                                                                    <CalendarCheck size={12} /> RETIRADA PREVISTA
                                                                 </span>
                                                                 <div className="flex flex-col items-center">
                                                                     <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-tighter">
@@ -955,6 +933,8 @@ const DashboardAdmin = () => {
                                                                     </div>
                                                                 </div>
                                                             </div>
+                                                            {os.data_prometida_cliente && os.data_prometida_cliente !== 'Não informada' &&
+                                                                <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">Visita solicitada: {os.data_prometida_cliente}</p>}
                                                         </td>
 
                                                         {/* Estado Técnico (Status) */}
@@ -1061,7 +1041,7 @@ const DashboardAdmin = () => {
                                                 {/* Footer: Cronograma e Botão */}
                                                 <div className="flex items-center justify-between pt-4 border-t-2 border-slate-50 dark:border-slate-800/50">
                                                     <div className="flex flex-col">
-                                                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Entrega / Deadline</span>
+                                                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Retirada prevista</span>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-sm font-black text-slate-800 dark:text-slate-200">
                                                                 {os.data_entrega_formatada || os.data_prometida_cliente}
@@ -1070,6 +1050,8 @@ const DashboardAdmin = () => {
                                                                 {os.hora}
                                                             </span>
                                                         </div>
+                                                        {os.data_prometida_cliente && os.data_prometida_cliente !== 'Não informada' &&
+                                                            <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">Visita solicitada: {os.data_prometida_cliente}</p>}
                                                     </div>
 
                                                     <button
@@ -1224,6 +1206,10 @@ const DashboardAdmin = () => {
                             </h2>
 
                             <div className="space-y-8 md:space-y-10 pb-10 md:pb-0">
+                                <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 text-sm">
+                                    <p className="font-bold">Preferência de visita do cliente</p>
+                                    <p>{selectedOS.data_prometida_cliente || 'Não informada'} · Confirmar disponibilidade com o cliente.</p>
+                                </div>
                                 {/* Bloco de Agendamento: Design de Slots Técnicos */}
                                 <div className="space-y-6 bg-slate-50 dark:bg-slate-950 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800/50 transition-colors animate-in fade-in duration-500">
 
@@ -1575,7 +1561,7 @@ const DashboardAdmin = () => {
 
                         {/* Texto de Rodapé Informativo */}
                         <p className="mt-8 text-[7px] font-mono text-slate-700 uppercase tracking-widest">
-                            Ollie_OS // Security_Module_v2.1
+                            Cidi_OS // Security_Module_v2.1
                         </p>
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-20 hover:opacity-50 transition-opacity">
 
@@ -1590,7 +1576,7 @@ const DashboardAdmin = () => {
                 <div className="fixed inset-0 bg-slate-900/90 dark:bg-[#020617]/95 backdrop-blur-2xl flex items-end md:items-center justify-center p-0 md:p-6 z-[60] animate-in zoom-in duration-300 transition-colors">
 
                     {/* Container: Full height no mobile, Centralizado no Desktop */}
-                    <div className="bg-white dark:bg-slate-900 rounded-t-[3rem] md:rounded-[4rem] max-w-2xl w-full h-[95vh] md:h-auto p-8 md:p-16 shadow-3xl overflow-y-auto custom-scrollbar border border-transparent dark:border-slate-800 transition-all">
+                    <div className="bg-white dark:bg-slate-900 rounded-t-[3rem] md:rounded-[4rem] max-w-4xl w-full h-[95vh] md:h-auto md:max-h-[90dvh] p-8 md:p-12 shadow-3xl overflow-y-auto custom-scrollbar border border-transparent dark:border-slate-800 transition-all">
 
                         {/* --- TELA 02: SUCESSO & WHATSAPP --- */}
                         {whatsLinkPending ? (
@@ -1604,8 +1590,8 @@ const DashboardAdmin = () => {
                                         Relatório <span className="text-emerald-600 dark:text-emerald-500">Pronto!</span>
                                     </h3>
                                     <p className="text-slate-400 dark:text-slate-500 font-bold text-xs md:text-sm uppercase tracking-widest leading-relaxed">
-                                        O PDF foi anexado ao e-mail do cliente. <br className="hidden md:block" />
-                                        Deseja enviar a notificação via WhatsApp agora?
+                                        Reparo salvo. O cliente já pode consultar o laudo no painel. <br className="hidden md:block" />
+                                        Abra o WhatsApp para enviar o aviso de retirada.
                                     </p>
                                 </div>
 
@@ -1739,26 +1725,24 @@ const DashboardAdmin = () => {
                                     {/* COLUNA ESQUERDA: LAUDO TÉCNICO */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between px-2">
-                                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <label htmlFor="repair-report" className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                                 <FileText size={14} className="text-blue-500" /> Laudo Final de Reparo
                                             </label>
 
-                                            <button
-                                                type="button"
-                                                onClick={gerarLaudoAutomatico}
-                                                className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500 text-blue-600 hover:text-white px-3 py-1.5 rounded-full border border-blue-500/20 transition-all text-[9px] font-black uppercase tracking-tighter group active:scale-95"
-                                            >
-                                                <Sparkles size={12} className="group-hover:animate-spin" /> IA_AUTO_FILL
-                                            </button>
+
                                         </div>
 
+                                        <RepairReportAssistant key={selectedOS.id} problem={selectedOS.problema}
+                                            parts={pecasSugeridas.filter(p => pecasEscolhidas.includes(p.id)).map(p => p.nome)}
+                                            value={laudo} onApply={setLaudo} />
                                         <div className="relative group">
                                             <textarea
+                                                id="repair-report"
                                                 required
-                                                className="w-full p-6 bg-slate-50 dark:bg-slate-950 border-2 border-transparent dark:border-slate-800 focus:border-blue-500 rounded-[2rem] font-black text-slate-700 dark:text-slate-200 italic outline-none transition-all text-xs md:text-sm shadow-inner min-h-[220px] resize-none uppercase leading-relaxed"
+                                                className="w-full p-6 bg-slate-50 dark:bg-slate-950 border-2 border-transparent dark:border-slate-800 focus:border-blue-500 rounded-[2rem] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all text-sm shadow-inner min-h-[260px] resize-y modern-scroll-v leading-relaxed"
                                                 placeholder="DESCREVA OS PROCEDIMENTOS REALIZADOS..."
                                                 value={laudo}
-                                                onChange={(e) => setLaudo(e.target.value.toUpperCase())}
+                                                onChange={(e) => setLaudo(e.target.value)}
                                             />
 
                                             {/* Contador de Chars */}
@@ -1840,59 +1824,26 @@ const DashboardAdmin = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {/* VALOR MÃO DE OBRA */}
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                            <label htmlFor="labor-value" className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
                                                 Valor Mão de Obra (R$)
                                             </label>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    className="w-full p-4 bg-white dark:bg-slate-900 border-2 border-transparent dark:border-slate-800 focus:border-blue-500 rounded-2xl font-black text-slate-700 dark:text-slate-200 outline-none transition-all text-sm shadow-sm"
-                                                    placeholder="0,00"
-                                                    value={valorMaoObra}
-                                                    onChange={(e) => setValorMaoObra(e.target.value)}
-                                                />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">R$</div>
-                                            </div>
+                                            <MoneyInput id="labor-value" value={valorMaoObra} onChange={setValorMaoObra} />
                                         </div>
 
                                         {/* CUSTO OPERACIONAL */}
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                            <label htmlFor="operational-value" className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
                                                 Custo Operacional (R$)
                                             </label>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    className="w-full p-4 bg-white dark:bg-slate-900 border-2 border-transparent dark:border-slate-800 focus:border-blue-500 rounded-2xl font-black text-slate-700 dark:text-slate-200 outline-none transition-all text-sm shadow-sm"
-                                                    placeholder="0,00"
-                                                    value={custoOperacional}
-                                                    onChange={(e) => setCustoOperacional(e.target.value)}
-                                                />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">R$</div>
-                                            </div>
+                                            <MoneyInput id="operational-value" value={custoOperacional} onChange={setCustoOperacional} />
                                         </div>
 
                                         {/* DESCONTO APLICADO */}
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                            <label htmlFor="discount-value" className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
                                                 Desconto Aplicado (R$)
                                             </label>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    className="w-full p-4 bg-white dark:bg-slate-900 border-2 border-transparent dark:border-slate-800 focus:border-blue-500 rounded-2xl font-black text-slate-700 dark:text-slate-200 outline-none transition-all text-sm shadow-sm"
-                                                    placeholder="0,00"
-                                                    value={descontoAplicado}
-                                                    onChange={(e) => setDescontoAplicado(e.target.value)}
-                                                />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">R$</div>
-                                            </div>
+                                            <MoneyInput id="discount-value" value={descontoAplicado} onChange={setDescontoAplicado} />
                                         </div>
                                     </div>
 
@@ -1918,9 +1869,9 @@ const DashboardAdmin = () => {
                                                         R$ {(pecasSugeridas
                                                             .filter(p => pecasEscolhidas.includes(p.id))
                                                             .reduce((acc, p) => acc + (p.preco_venda || 0), 0) +
-                                                            (parseFloat(valorMaoObra) || 0) +
-                                                            (parseFloat(custoOperacional) || 0) -
-                                                            (parseFloat(descontoAplicado) || 0))
+                                                            (moneyValue(valorMaoObra) || 0) +
+                                                            (moneyValue(custoOperacional) || 0) -
+                                                            (moneyValue(descontoAplicado) || 0))
                                                             .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </p>
                                                 </div>
@@ -1941,7 +1892,7 @@ const DashboardAdmin = () => {
                                     <button
                                         type="button" // Mude para button se não estiver dentro de um <form> que você queira usar o onSubmit
                                         onClick={handleFinalizarComCodigo}
-                                        disabled={loading || !laudo} // Bloqueia se não tiver laudo (boa prática de Analyst)
+                                        disabled={loading || !laudo.trim()} // Bloqueia se não tiver laudo (boa prática de Analyst)
                                         className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 uppercase italic"
                                     >
                                         {loading ? (

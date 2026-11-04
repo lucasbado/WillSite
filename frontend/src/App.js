@@ -22,6 +22,7 @@ import ScannerEntrega from './pages/ScannerEntrega';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import ConfirmEmail from './pages/ConfirmEmail';
+import CustomerAssistant from './components/CustomerAssistant';
 
 
 function ProtectedRoute({ admin = false, children }) {
@@ -71,6 +72,7 @@ function App() {
         {/* Rota de fallback (Redireciona qualquer coisa errada para a Home) */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      <CustomerAssistant />
     </Router>
   );
 }

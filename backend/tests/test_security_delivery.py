@@ -19,6 +19,7 @@ class SecurityDeliveryTests(unittest.TestCase):
             "TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite://",
             "JWT_SECRET_KEY": "isolated-test-secret-with-at-least-32-characters",
             "NOTIFICATIONS_ENABLED": False, "MAIL_SUPPRESS_SEND": True,
+            "CHAT_AI_ENABLED": False, "GROQ_API_KEY": "",
         })
         self.context = self.app.app_context()
         self.context.push()

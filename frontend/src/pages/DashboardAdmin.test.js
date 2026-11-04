@@ -11,6 +11,21 @@ jest.mock('../utils/notifications', () => ({ success: jest.fn(), error: jest.fn(
 
 beforeEach(() => { jest.clearAllMocks(); sessionStorage.clear(); localStorage.clear(); });
 
+test('finalização envia centavos corretos e oferece o aviso de WhatsApp retornado pelo servidor', async () => {
+    const order = { id: 9, cliente: 'Teste', modelo: 'Galaxy A15', problema: 'Não carrega', status: 'Em Manutenção' };
+    api.get.mockImplementation(url => Promise.resolve({ data: url === '/os/admin/listar' ? [order] : url === '/os/admin/escala-mensal' ? {} : [] }));
+    api.patch.mockResolvedValue({ data: { whatsapp_link: 'https://wa.me/5511999999999', os_atualizada: { status: 'Pronto para Retirada' } } });
+    render(<DashboardAdmin />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Abrir OS 9' }));
+    fireEvent.click(screen.getByRole('button', { name: /PRONTO \/ FATURAR/ }));
+    fireEvent.change(await screen.findByLabelText('Laudo Final de Reparo'), { target: { value: 'Conector substituído e carregamento testado.' } });
+    fireEvent.change(screen.getByLabelText('Valor Mão de Obra (R$)'), { target: { value: '150,01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'FINALIZAR REPARO & NOTIFICAR' }));
+    await screen.findByRole('button', { name: 'Enviar p/ WhatsApp' });
+    expect(api.patch).toHaveBeenCalledWith('/os/admin/concluir-total/9', expect.objectContaining({ valor_mao_obra: 150.01 }));
+    expect(screen.queryByText(/PDF foi anexado/)).not.toBeInTheDocument();
+});
+
 test('o cartão móvel abre a retirada e confirma pela rota de entrega', async () => {
     const order = { id: 8, cliente: 'Cliente Teste', modelo: 'iPhone 13', status: 'Pronto para Retirada',
         verification_code: '0123', code_expires_at: new Date(Date.now() + 1800000).toISOString() };

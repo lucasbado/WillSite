@@ -6,6 +6,7 @@ import DeliveryScanner from '../components/DeliveryScanner';
 import LoadNotice from '../components/LoadNotice';
 import { requestError } from '../utils/requestError';
 import { statusStage } from '../utils/workOrders';
+import { intakeError, localDateTime, newIntakeId } from '../utils/intake';
 import notify from '../utils/notifications';
 
 const DashboardCliente = () => {
@@ -24,6 +25,8 @@ const DashboardCliente = () => {
     const [lastUpdated, setLastUpdated] = useState(null);
     const [view, setView] = useState('ativos');
     const historyBusy = useRef(false);
+    const intakeRequestId = useRef(newIntakeId());
+    const submitBusy = useRef(false);
 
     const handleLogout = () => {
         sessionStorage.clear();
@@ -58,8 +61,9 @@ const DashboardCliente = () => {
         const refresh = () => { if (!document.hidden) fetchHistorico(); };
         const interval = setInterval(refresh, 30000);
         window.addEventListener('focus', refresh);
+        window.addEventListener('willsite:orders-updated', refresh);
         document.addEventListener('visibilitychange', refresh);
-        return () => { clearInterval(interval); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+        return () => { clearInterval(interval); window.removeEventListener('focus', refresh); window.removeEventListener('willsite:orders-updated', refresh); document.removeEventListener('visibilitychange', refresh); };
     }, [fetchHistorico]);
 
     const currentStatus = verDetalhesOS?.status?.toLowerCase().trim() || '';
@@ -76,15 +80,23 @@ const DashboardCliente = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (loading) return;
+        if (submitBusy.current) return;
+        const payload = { modelo: formData.modelo, problema: formData.problema,
+            data_entrega: formData.data_entrega_dia && formData.data_entrega_hora
+                ? `${formData.data_entrega_dia}T${formData.data_entrega_hora}` : formData.data_entrega };
+        const invalid = intakeError(payload);
+        if (invalid) { notify.error(invalid); return; }
+        submitBusy.current = true;
         setLoading(true);
         try {
-            await api.post('/os/abrir', formData);
+            await api.post('/os/abrir', { ...payload, intake_request_id: intakeRequestId.current });
+            intakeRequestId.current = newIntakeId();
+            notify.success('Solicitação recebida. Aguarde a confirmação do horário pela equipe.');
             setIsModalOpen(false);
             setFormData({ modelo: '', problema: '', data_entrega: '', valor_servico: 0 });
             fetchHistorico();
         } catch (err) { notify.error(requestError(err, "Erro ao abrir OS.")); }
-        finally { setLoading(false); }
+        finally { submitBusy.current = false; setLoading(false); }
     };
 
     const handleExcluir = async (id) => {
@@ -283,6 +295,8 @@ const DashboardCliente = () => {
                                                                         ? `Previsão: ${os.data_agendada_admin}`
                                                                         : 'Aguardando agendamento da assistência.'}
                                                         </p>
+                                                        {statusStage(os.status) === 1 && os.previsao_cliente && os.previsao_cliente !== 'Não informada' &&
+                                                            <p className="mt-2 text-sm text-blue-700 dark:text-blue-300">Visita solicitada: {os.previsao_cliente}. Aguarde a confirmação da equipe.</p>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -485,7 +499,7 @@ const DashboardCliente = () => {
                                             <Calendar size={14} className="text-blue-500" /> Janela de Entrega na Loja
                                         </label>
                                         <span className="text-[9px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full italic uppercase">
-                                            Sistema_Agendamento_v1
+                                            Sujeito à confirmação
                                         </span>
                                     </div>
 
@@ -498,7 +512,7 @@ const DashboardCliente = () => {
                                                 const diaSemana = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
                                                 const diaMes = date.getDate();
                                                 const isDomingo = date.getDay() === 0;
-                                                const isSelected = formData.data_entrega_dia === date.toISOString().split('T')[0];
+                                                const isSelected = formData.data_entrega_dia === localDateTime(date).slice(0, 10);
 
                                                 if (isDomingo) return null;
 
@@ -507,7 +521,7 @@ const DashboardCliente = () => {
                                                         key={i}
                                                         type="button"
                                                         onClick={() => {
-                                                            setFormData({ ...formData, data_entrega_dia: date.toISOString().split('T')[0], data_entrega_hora: '' });
+                                                            setFormData({ ...formData, data_entrega_dia: localDateTime(date).slice(0, 10), data_entrega_hora: '' });
                                                         }}
                                                         className={`flex flex-col items-center min-w-[70px] py-4 rounded-2xl border-2 transition-all snap-center active:scale-90 ${isSelected
                                                             ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-900/20'
@@ -529,7 +543,7 @@ const DashboardCliente = () => {
                                         {formData.data_entrega_dia && (
                                             <div className="pt-6 border-t border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2">
                                                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 text-center italic">
-                                                    {new Date(formData.data_entrega_dia).toLocaleDateString('pt-BR', { weekday: 'long' })}: Selecione o Horário
+                                                    {new Date(formData.data_entrega_dia + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}: Selecione o Horário
                                                 </p>
                                                 <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                                                     {Array.from({ length: 11 }).map((_, i) => {
@@ -544,8 +558,9 @@ const DashboardCliente = () => {
                                                             <button
                                                                 key={hora}
                                                                 type="button"
+                                                                disabled={`${formData.data_entrega_dia}T${hora}:00` <= localDateTime()}
                                                                 onClick={() => setFormData({ ...formData, data_entrega_hora: `${hora}:00` })}
-                                                                className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${isSelectedHora
+                                                                className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border-2 disabled:opacity-30 disabled:cursor-not-allowed ${isSelectedHora
                                                                     ? 'bg-slate-900 border-slate-900 dark:bg-blue-500 dark:border-blue-400 text-white shadow-lg'
                                                                     : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-blue-500'
                                                                     }`}
@@ -566,7 +581,7 @@ const DashboardCliente = () => {
                                                 <CheckCircle2 size={24} />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Check-in Confirmado</p>
+                                                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Preferência de visita</p>
                                                 <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase italic tracking-tighter">
                                                     {new Date(formData.data_entrega_dia + 'T00:00:00').toLocaleDateString('pt-BR')} às {formData.data_entrega_hora}
                                                 </p>

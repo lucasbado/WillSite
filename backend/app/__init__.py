@@ -47,6 +47,12 @@ def create_app(test_config=None):
         MAIL_DEFAULT_SENDER=os.getenv("MAIL_USERNAME", "local@willsite.test"),
         MAIL_SUPPRESS_SEND=not production,
         NOTIFICATIONS_ENABLED=production,
+        CHAT_AI_ENABLED=os.getenv('CHAT_AI_ENABLED', 'false').lower() == 'true',
+        GROQ_API_KEY=os.getenv('GROQ_API_KEY', ''),
+        GROQ_MODELS=list(dict.fromkeys(model.strip() for model in os.getenv(
+            'GROQ_MODELS', 'openai/gpt-oss-20b,openai/gpt-oss-120b').split(',') if model.strip()))[:3],
+        CHAT_AI_DAILY_LIMIT=int(os.getenv('CHAT_AI_DAILY_LIMIT', '100')),
+        CHAT_AI_MINUTE_LIMIT=int(os.getenv('CHAT_AI_MINUTE_LIMIT', '12')),
     )
     if test_config:
         app.config.update(test_config)
@@ -73,12 +79,14 @@ def create_app(test_config=None):
     from .routes.devices import devices_bp
     from .routes.vendors import vendors_bp
     from .security import enforce_access
+    from .routes.assistant import assistant_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(os_bp, url_prefix="/api/os")
     app.register_blueprint(inventory_bp, url_prefix="/api/estoque")
     app.register_blueprint(devices_bp, url_prefix="/api/devices")
     app.register_blueprint(vendors_bp, url_prefix="/api/vendors")
+    app.register_blueprint(assistant_bp, url_prefix='/api/assistant')
     app.before_request(enforce_access)
 
     @app.get("/healthz")
